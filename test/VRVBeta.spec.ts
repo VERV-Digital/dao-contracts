@@ -76,12 +76,18 @@ describe("VRVBeta Token", function () {
       // Transfer 100 tokens from owner to addr1.
       await vrvToken.transfer(addr1.address, 100);
 
+
       // Transfer another 50 tokens from owner to addr2.
       await vrvToken.transfer(addr2.address, 50);
 
       // Check balances.
       const finalOwnerBalance = await vrvToken.balanceOf(owner.address);
       expect(finalOwnerBalance).to.equal(initialOwnerBalance - BigInt(150));
+      // expect(finalOwnerBalance).to.changeTokenBalances(
+      //     vrvToken,
+      //     [sender, receiver],
+      //     [-1, 1]
+      // );
 
       const addr1Balance = await vrvToken.balanceOf(addr1.address);
       expect(addr1Balance).to.equal(100);
