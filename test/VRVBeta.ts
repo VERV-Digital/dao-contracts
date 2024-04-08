@@ -6,7 +6,7 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import { VRVBeta } from "../typechain-types/contracts/VRVBeta";
+import { VRVBeta } from "../typechain-types";
 
 
 describe("VRVBeta Token", function () {

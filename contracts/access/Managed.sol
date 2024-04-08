@@ -20,9 +20,9 @@ abstract contract Managed is Context, IManaged {
         _changeManagerAddress(managerAddress);
     }
 
-    modifier restircted(bytes32[] acceptedRoles) {
-
-    }
+//    modifier restircted(bytes32[] acceptedRoles) {
+//
+//    }
 
     function _changeManagerAddress(address managerAddress) internal {
         if (managerAddress == address(0)) {
@@ -36,7 +36,7 @@ abstract contract Managed is Context, IManaged {
         emit ChangeManageAddress(oldAddress, _managerAddress);
     }
 
-    function getManager() external view returns (string memory) {
+    function getManager() external view returns (address) {
         return _managerAddress;
     }
 }

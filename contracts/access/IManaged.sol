@@ -7,5 +7,5 @@ interface IManaged is IAccessErrors {
 
     event ChangeManageAddress(address oldAddress, address newAddress);
 
-    function getManager() external view returns (string memory);
+    function getManager() external view returns (address);
 }

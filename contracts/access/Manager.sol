@@ -30,6 +30,10 @@ contract Manager is Ownable2Step, Roles, IManager {
     }
 
     function getIndividualDocument() external view onlyOwner returns (address) {
+        if (_individualDocumentAddress == address(0)) {
+            revert AccessManagerContractAddressMissing();
+        }
+
         return _individualDocumentAddress;
     }
 
