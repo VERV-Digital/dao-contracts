@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-contract IManaged {
-    error AccessManagerInvalidAddress();
+import {IAccessErrors} from "./IAccessErrors.sol";
+
+interface IManaged is IAccessErrors {
 
     event ChangeManageAddress(address oldAddress, address newAddress);
 
-    function _changeManagerAddress(address managerAddress) internal;
-
-    function getManager() public view returns(string);
+    function getManager() external view returns (string memory);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-interface IRoles {
+abstract contract Roles {
     bytes32 public constant ALIEN_ROLE = keccak256("ALIEN_ROLE");
 
     bytes32 public constant RESIDENT_ROLE = keccak256("RESIDENT_ROLE");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -36,7 +36,7 @@ abstract contract Managed is Context, IManaged {
         emit ChangeManageAddress(oldAddress, _managerAddress);
     }
 
-    function getManager() public view returns(string) {
+    function getManager() external view returns (string memory) {
         return _managerAddress;
     }
 }

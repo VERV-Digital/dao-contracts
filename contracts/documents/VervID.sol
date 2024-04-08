@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
@@ -12,6 +12,7 @@ import {IERC165, ERC165} from "@openzeppelin/contracts/utils/introspection/ERC16
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import "hardhat/console.sol";
 import "../access/IID.sol";
+import "../access/IDStruct.sol";
 import {Managed} from "../access/Managed.sol";
 
 
@@ -214,7 +215,7 @@ contract VervID is Context, ERC165, IERC721, IERC721Enumerable, IERC721Metadata,
         // );
     }
 
-    function getByTokenId(uint256 tokenId) public view virtual returns (IDData memory) {
+    function getByTokenId(uint256 tokenId) external view returns (IDData memory) {
         address owner = _owners[tokenId];
 
         if (owner == address(0)) {
@@ -230,7 +231,7 @@ contract VervID is Context, ERC165, IERC721, IERC721Enumerable, IERC721Metadata,
     }
 
 
-    function getByOwner(address owner) public view virtual returns (IDData memory) {
+    function getByOwner(address owner) external view returns (IDData memory) {
         if (owner == address(0)) {
             revert ERC721InvalidOwner(owner);
         }
@@ -245,7 +246,7 @@ contract VervID is Context, ERC165, IERC721, IERC721Enumerable, IERC721Metadata,
     }
 
 
-    function getMe() public view virtual returns (IDData memory) {
+    function getMe() external view returns (IDData memory) {
         if (_msgSender() == address(0)) {
             revert ERC721InvalidOwner(_msgSender());
         }

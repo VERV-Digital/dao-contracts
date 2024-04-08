@@ -1,37 +1,45 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IRoles} from "./IRoles.sol";
+import {Roles} from "./Roles.sol";
 import {IID} from "./IID.sol";
+import "./IDStruct.sol";
 import {IManager} from "./IManager.sol";
+import {IManaged} from "./IManaged.sol";
 
-contract Manager is Ownable2Step, IManager {
+contract Manager is Ownable2Step, Roles, IManager {
     using Strings for uint256;
 
     address private _individualDocumentAddress;
 
     IID private _individualDocumentContract;
 
-    constructor(address initialOwner) Ownable2Step(initialOwner) {}
+    constructor(address initialOwner) Ownable(initialOwner){}
 
     function setIndividualDocument(address _idAddress) public onlyOwner {
         if (_idAddress == address(0)) {
-            revert ManagerInvalidAddress();
+            revert AccessManagerInvalidAddress();
         }
         _individualDocumentAddress = _idAddress;
 
         _individualDocumentContract = IID(_individualDocumentAddress);
     }
 
-    function getIndividualDocument() public view onlyOwner returns(string) {
+    function getIndividualDocument() external view onlyOwner returns (address) {
         return _individualDocumentAddress;
     }
 
-    function hasID(address userAddress) public view returns(bool) {
-        _individualDocumentContract.
+    function hasID(address userAddress) external view returns(bool) {
+        try _individualDocumentContract.getByOwner(userAddress) {
+            return true;
+        } catch {
+            return false;
+        }
+
     }
 
     /*
