@@ -1,18 +1,23 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-import "@openzeppelin/hardhat-upgrades";
+import "dotenv/config";
 
-require("dotenv").config();
+import {
+  EtherscanAPIKey,
+  GoerliRPCUrl,
+  PrivateKey,
+  SepoliaRPCUrl
+} from "./utils/env";
 
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    const balance = await ethers.provider.getBalance(account.address);
-
-    console.log(account.address, ethers.formatEther(balance), "ETH");
-  }
-});
+// task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
+//   const accounts = await hre.ethers.getSigners();
+//
+//   for (const account of accounts) {
+//     const balance = await ethers.provider.getBalance(account.address);
+//
+//     console.log(account.address, ethers.formatEther(balance), "ETH");
+//   }
+// });
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -24,19 +29,33 @@ const config: HardhatUserConfig = {
       }
     }
   },
-  // defender: {
-    // apiKey: '57yrWobM1wUbu4D6VxK9sMsX5QuP2f5o',
-    // apiSecret: '5obLLMXzFaUSbqdfdpFN3Q1jSygpVoK3fieA8jVwUbZecYLbvANABSjMQ8bgAQpp',
-  // },
+  defaultNetwork: "hardhat",
   networks: {
+    hardhat: {},
+    // goerli: {
+    //   url: GoerliRPCUrl || "",
+    //   accounts: [PrivateKey],
+    //   chainId: 5,
+    //   gasPrice: 300 * 1000000000
+    // },
     // sepolia: {
-      // url: "https://ethereum-sepolia.publicnode.com",
-      // chainId: 11155111
-    // },
-    // hardhat: {
-      // chainId: 31337,
-    // },
+    //   url: SepoliaRPCUrl || "",
+    //   accounts: [PrivateKey],
+    //   chainId: 11155111,
+    //   gasPrice: 5 * 1000000000
+    // }
   },
+  etherscan: {
+    apiKey: EtherscanAPIKey
+  },
+  mocha: {
+    bail: true,
+    timeout: 300000
+  },
+  gasReporter: {
+    enabled: true,
+    currency: "USD"
+  }
 };
 
 export default config;

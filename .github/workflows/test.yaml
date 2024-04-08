@@ -4,13 +4,15 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Hardhat unit test
+    name: Solidity unit test continuous integration
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Environment
+
+      - name: Environment Setup
         uses: actions/setup-node@v3
-      - name: Test
+
+      - name: Unit test
         uses: ambersun1234/hardhat-test-action@v1
         with:
           network: hardhat
