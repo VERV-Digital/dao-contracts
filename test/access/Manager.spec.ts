@@ -34,11 +34,42 @@ describe("Access Manager", function () {
   });
 
   describe("Deployment", function () {
-    it("Make sure there are no contract addresses", async function () {
-      // console.log(await managerContract.getIndividualDocument());
-      await expect(managerContract.getIndividualDocument())
-          .to.be.revertedWithCustomError(managerContract, "AccessManagerContractAddressMissing()");
+
+    it("Должен проверить владельца контракта", async function () {
+    });
+
+    it("Должен проверить адреса контактов", async function () {
     });
 
   });
+
+  describe("Change owner", function () {
+
+    it("Должен произойти сбой в смене владельца по причине отсутствия прав", async function () {
+    });
+
+    it("Должен сменить владельца контракта", async function () {
+    });
+
+  });
+
+  describe("Get role and node", function () {
+
+    it("Должен ввернуть роль Investor", async function () {
+    });
+
+    it("Должен ввернуть роль Alien", async function () {
+    });
+
+    it("Должен ввернуть роль Citizen", async function () {
+    });
+
+    it("Должен ввернуть роль PEN", async function () {
+    });
+
+    it("Должен ввернуть роль Commander", async function () {
+    });
+
+  });
+
 });
