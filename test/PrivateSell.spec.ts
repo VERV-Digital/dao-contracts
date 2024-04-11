@@ -6,10 +6,10 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import { VRVBeta } from "../../typechain-types";
+import { VRVBeta } from "../typechain-types";
 
 
-describe("Base ERC20 coin VRV-Beta Token", function () {
+describe("Private sell smart contract", function () {
 
   let vrvToken: VRVBeta;
   let owner: SignerWithAddress;
@@ -50,7 +50,7 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
   });
 
 
-  describe("Minting", function () {
+  describe("Stats and Control", function () {
 
     it("Должен произойти сбой в чеканке по причине нет прав owner", async function () {
     });
@@ -63,29 +63,32 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
 
   });
 
-  describe("Transfers", function () {
+  describe("Deposit", function () {
 
-    it("Должен произойти сбой в отправке токенов между адресами по причине отсутствия нужного количества", async function () {
-
-    });
-
-    it("Должен произойти сбой в отправке токенов между адресами по причине отсутствия нужного количества для оплаты комиссии", async function () {
+    it("Должен произойти сбой совершении депозита по причине не достаточного количества Eth", async function () {
 
     });
 
-    it("Должен отправить токены между адресами", async function () {
+    it("Должен произойти сбой совершении депозита по причине отсутствия нужного количества VRV в текущей волне", async function () {
 
     });
 
+    it("Должен произойти сбой совершении депозита по причине завершения торгов", async function () {
+
+    });
+
+    it("Должен совершить депозит", async function () {
+
+    });
   });
 
-  describe("Burning", function () {
+  describe("Finish", function () {
 
-    it("Должен произойти сбой в сжигании своих токенов по причине отсутствия нужного количества", async function () {
+    it("Должен произойти возврат из за не набранного soft", async function () {
 
     });
 
-    it("Должен сжечь свои токены", async function () {
+    it("Должен произойти перевод EHT и остатков VRV на баланс владельца при набранном soft", async function () {
 
     });
 
