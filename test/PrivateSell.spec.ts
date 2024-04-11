@@ -44,21 +44,21 @@ describe("Private sell smart contract", function () {
     it("Должен проверить владельца контракта", async function () {
     });
 
-    it("Должен проверить распределение initSupply", async function () {
-    });
-
   });
 
 
   describe("Stats and Control", function () {
 
-    it("Должен произойти сбой в чеканке по причине нет прав owner", async function () {
+    it("Должен проверить наличие VRV на балансе", async function () {
     });
 
-    it("Должен произойти сбой в чеканке по причине нельзя чеканить для себя", async function () {
+    it("Должен получить информацию о состоянии токена", async function () {
     });
 
-    it("Должен отчеканить монеты", async function () {
+    it("Должен установить текущую волну и стоимость", async function () {
+    });
+
+    it("Должен проверить состояние открытия продажи", async function () {
     });
 
   });

@@ -3,11 +3,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/manager/AccessManaged.sol";
-import {IFaith} from "./IFaith.sol";
+import "../access/tokens/IFaith.sol";
 
 contract Faith is ERC721, IFaith {
-    constructor(address initialAuthority)
+    constructor()
         ERC721("VervFaith", "FAITH")
     {}
 

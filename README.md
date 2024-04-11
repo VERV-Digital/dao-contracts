@@ -1,8 +1,5 @@
-# Sample Hardhat Project
+# VRV Смарт контракты
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
-
-Try running some of the following tasks:
 
 ```shell
 npx hardhat help
@@ -11,3 +8,17 @@ REPORT_GAS=true npx hardhat test
 npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/Verv.ts
 ```
+
+## Версии контрактов на 11.04.2024
+
+### VRV
+
+- Name - `Verv-Beta`
+- Symbol - `VRV`
+- Decimals - `4`
+- Зависимости - `ERC20`, `ERC20Burnable`, `Ownable`
+
+Основные тезисы:
+- Обычный `ERC20` контракт
+- Основное отличие в том, что владелец чеканить может только для другого кошелька. 
+
