@@ -114,7 +114,7 @@ contract PrivateSell is EIP712, Ownable {
         console.log("s", signer);
         console.log("sender", _msgSender());
 
-//        TODO: Fixed
+//        TODO: Не верный signer стоит
 //        if (owner() != signer) {
 //            revert PrivateSellFailedSignature(signer);
 //        }
