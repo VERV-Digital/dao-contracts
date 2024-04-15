@@ -23,20 +23,20 @@ const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {},
-    sepolia: {
-      url: SepoliaRPCUrl || "",
-      accounts: [PrivateKey],
-      chainId: 11155111,
-      gasPrice: 5 * 1000000000
-    }
+    // sepolia: {
+    //   url: SepoliaRPCUrl || "",
+    //   accounts: [PrivateKey],
+    //   chainId: 11155111,
+    //   gasPrice: 5 * 1000000000
+    // }
   },
   etherscan: {
-    apiKey: EtherscanAPIKey
+    // apiKey: EtherscanAPIKey
   },
   sourcify: {
     // Disabled by default
     // Doesn't need an API key
-    enabled: true
+    // enabled: true
   },
   mocha: {
     bail: true,

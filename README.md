@@ -121,7 +121,7 @@ const types: EIP712TypeDefinition = {
 };
 
 const domain: EIP712Domain =  {
-  name: "VERVprivateSale",
+  name: "VERVPRIVATESALE",
   version: "1",
   chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number, // ChainId лучше уточнить у Элькина в какой сети это будет расскатано 
   verifyingContract: privateSaleContractAddress, // Адрес контракта приватной продажи
