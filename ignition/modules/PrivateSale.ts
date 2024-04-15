@@ -8,22 +8,22 @@ const SOFT_DEFAULT: bigint = 15_000_000_000_000_000_000n;
 const HARD_DEFAULT: bigint = 40_000_000_000_000_000_000n;
 
 
-const PrivateSellModule = buildModule("PrivateSellModule", (m) => {
+const PrivateSaleModule = buildModule("PrivateSaleModule", (m) => {
 
   const vrv = m.contract("VRVBeta", [VERV_INIT_DEFAULT]);
 
-  const privateSell = m.contract(
-      "PrivateSell", [vrv],
+  const privateSale = m.contract(
+      "PrivateSale", [vrv],
       {
         after: [vrv]
       }
   );
 
-  m.call(vrv, 'transfer', [privateSell, VERV_INIT_DEFAULT]);
-  m.call(privateSell, 'openSell', [SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT]);
+  m.call(vrv, 'transfer', [privateSale, VERV_INIT_DEFAULT]);
+  m.call(privateSale, 'openSale', [SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT]);
 
 
-  return { privateSell };
+  return { privateSale };
 });
 
-export default PrivateSellModule;
+export default PrivateSaleModule;

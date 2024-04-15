@@ -10,21 +10,24 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./coins/VRVBeta.sol";
 import "hardhat/console.sol";
 
-contract PrivateSell is EIP712, Ownable {
+contract PrivateSale is EIP712, Ownable {
 
     using Math for uint256;
     using Address for address;
 
-    string private constant SIGNING_DOMAIN = "VERVPRIVATESELL";
+    string private constant SIGNING_DOMAIN = "VERVPRIVATESALE";
     string private constant SIGNATURE_VERSION = "1";
 
-    error PrivateSellSaleIsOpen();
-    error PrivateSellSaleIsFinish();
-    error PrivateSellFailedSignature(address signer);
-    error PrivateSellWaveLimitExceeded(uint256 limit);
-    error PrivateSellInsufficientBalance();
+    error PrivateSaleSaleIsOpen();
+    error PrivateSaleSaleIsFinish();
+    error PrivateSaleFailedSignature(address signer);
+    error PrivateSaleWaveLimitExceeded(uint256 limit);
+    error PrivateSaleInsufficientBalance();
 
     event Deposited(address indexed from, Deposit _value);
+
+    event SaleOpened();
+    event SaleClosed();
 
     struct Deposit {
         uint256 tokenAmount;
@@ -71,6 +74,10 @@ contract PrivateSell is EIP712, Ownable {
 
     bool private _failed;
 
+    function depositSum() public view returns (uint256) {
+        return _depositSum;
+    }
+
     constructor(address vrvToken)
         EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION)
         Ownable(_msgSender())
@@ -82,13 +89,14 @@ contract PrivateSell is EIP712, Ownable {
         _success = false;
     }
 
-    function openSell(
+
+    function openSale(
         uint256 softCap,
         uint256 hardCap,
         uint256 waveLimit
     ) external onlyOwner {
         if (_openSale == true) {
-            revert PrivateSellSaleIsOpen();
+            revert PrivateSaleSaleIsOpen();
         }
 
         _softCap = softCap;
@@ -105,7 +113,7 @@ contract PrivateSell is EIP712, Ownable {
 
     function deposit(DepositRequest calldata request) payable public {
         if (_finishSale) {
-            revert PrivateSellSaleIsFinish();
+            revert PrivateSaleSaleIsFinish();
         }
 
         address signer = _verifyDepositRequest(request);
@@ -115,7 +123,7 @@ contract PrivateSell is EIP712, Ownable {
         console.log("contract sender", _msgSender());
 
         if (owner() != signer) {
-            revert PrivateSellFailedSignature(signer);
+            revert PrivateSaleFailedSignature(signer);
         }
 
         require(request.wave >= 1, "Wave >= 1");
@@ -123,11 +131,11 @@ contract PrivateSell is EIP712, Ownable {
         require(request.wave <= 10, "Wave <= 10");
 
         if (_waveInfo[request.wave].limit < request.tokenAmount) {
-            revert PrivateSellWaveLimitExceeded(_waveInfo[request.wave].limit);
+            revert PrivateSaleWaveLimitExceeded(_waveInfo[request.wave].limit);
         }
 
         if (msg.value < request.amount) {
-            revert PrivateSellInsufficientBalance();
+            revert PrivateSaleInsufficientBalance();
         }
 
         Deposit memory dep = Deposit(

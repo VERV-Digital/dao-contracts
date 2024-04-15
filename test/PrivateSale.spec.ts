@@ -6,7 +6,7 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import {PrivateSell, PrivateSell__factory, VRVBeta} from "../typechain-types";
+import {PrivateSale, PrivateSale__factory, VRVBeta} from "../typechain-types";
 import {EIP712Domain, EIP712TypeDefinition} from "../helpers/EIP712.types";
 import {signTypedData} from "../helpers/EIP712";
 import {splitSignature} from "@ethersproject/bytes";
@@ -15,8 +15,8 @@ import {splitSignature} from "@ethersproject/bytes";
 describe("Private sell smart contract", function () {
 
   let vrvToken: VRVBeta;
-  let sellToken: PrivateSell;
-  let sellFactory: PrivateSell__factory;
+  let sellToken: PrivateSale;
+  let sellFactory: PrivateSale__factory;
   let sellAddress: string;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
@@ -36,7 +36,7 @@ describe("Private sell smart contract", function () {
   let domain: EIP712Domain;
 
 
-  const SIGNING_DOMAIN = "VERVPRIVATESELL";
+  const SIGNING_DOMAIN = "VERVPRIVATESALE";
   const SIGNATURE_VERSION = "1";
 
   const VERV_INIT_DEFAULT: bigint = 7_500_000_000_000_000_000_000_000n;
@@ -54,24 +54,24 @@ describe("Private sell smart contract", function () {
 
     await vrvContract.waitForDeployment();
 
-    const factorySell = (await ethers.getContractFactory("PrivateSell", coinOwner));
+    const factorySale = (await ethers.getContractFactory("PrivateSale", coinOwner));
 
-    let contractSell = await factorySell.deploy(await vrvContract.getAddress());
+    let contractSale = await factorySale.deploy(await vrvContract.getAddress());
 
-    await contractSell.waitForDeployment();
+    await contractSale.waitForDeployment();
 
-    return {vrvContract, contractSell, factorySell};
+    return {vrvContract, contractSale, factorySale};
   }
 
   beforeEach(async function () {
 
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
-    const {vrvContract, contractSell, factorySell} = await loadFixture(deployFixture);
+    const {vrvContract, contractSale, factorySale} = await loadFixture(deployFixture);
 
     vrvToken = vrvContract;
-    sellToken = contractSell;
-    sellFactory = factorySell;
+    sellToken = contractSale;
+    sellFactory = factorySale;
 
     sellAddress = await sellToken.getAddress();
 
@@ -133,11 +133,11 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSell(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
 
       const dep = {
         to: addr1.address,
-        tokenAmount: 1000,
+        tokenAmount: 1000000000000000000000n,
         amount: 7178957041000000,
         cost: 7178957041000,
         wave: 1

@@ -23,16 +23,16 @@ npx hardhat ignition deploy ./ignition/modules/Verv.ts
 - Основное отличие в том, что владелец чеканить может только для другого кошелька. 
 
 
-### PrivateSell
+### PrivateSale
 
-- Name - `Verv-Private-Sell`
+- Name - `Verv-Private-Sale`
 - Symbol - `VPRIVATE`
 - Decimals - `0`
 - Зависимости - `Ownable`, `EIP712`
 
 Основные тезисы:
 - Контракт `EIP712`
-- Домен `EIP712` контракта - `VERVPRIVATESELL`. Версия - `1`
+- Домен `EIP712` контракта - `VERVPRIVATESALE`. Версия - `1`
 - Перед стартом продаж нужно инициализировать
 - Принимает депозиты от пользователей
 - Каждый депозит подписывается владельцем контракта
@@ -48,18 +48,18 @@ npx hardhat ignition deploy ./ignition/modules/Verv.ts
 
 Как работать с контрактом
 
-Пред началом продажи необходимо на баланс контракта Private Sell перечислить VRV токены в необходимом 
+Пред началом продажи необходимо на баланс контракта Private Sale перечислить VRV токены в необходимом 
 количестве. `При деплое через команду это происходит автоматически` 
 
 ```
-vrvToken.transfer(privateSellContractAddress, 7_500_000_000_000_000_000_000_000n);
+vrvToken.transfer(privateSaleContractAddress, 7_500_000_000_000_000_000_000_000n);
 ```
 
 Пред началом продажи необходимо сконфигурировать контракт тем самым разрешив депозиты. `При деплое через команду это происходит автоматически`
 
 ```
-// privateSellContract.openSell(softCap: bigint, hardCap: bigint, waveLimit: bigint);
-privateSellContract.openSell(15_000_000_000_000_000_000n, 40_000_000_000_000_000_000n, 750_000_000_000_000_000_000_000n);
+// privateSaleContract.openSale(softCap: bigint, hardCap: bigint, waveLimit: bigint);
+privateSaleContract.openSale(15_000_000_000_000_000_000n, 40_000_000_000_000_000_000n, 750_000_000_000_000_000_000_000n);
 ```
 
 
@@ -121,10 +121,10 @@ const types: EIP712TypeDefinition = {
 };
 
 const domain: EIP712Domain =  {
-  name: "VERVPRIVATESELL",
+  name: "VERVprivateSale",
   version: "1",
   chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number, // ChainId лучше уточнить у Элькина в какой сети это будет расскатано 
-  verifyingContract: privateSellContractAddress, // Адрес контракта приватной продажи
+  verifyingContract: privateSaleContractAddress, // Адрес контракта приватной продажи
 }
 
 const deposit = {
@@ -139,18 +139,57 @@ const deposit = {
 // owner - SignerWithAddress пользователь от имени которого расскатан контракт
 const signature = await signTypedData(domain, types, deposit, owner);
 
-// privateSellFactory - Фабрика в текущем примере из hardhad но можно и через ether вывать через
+// privateSaleFactory - Фабрика в текущем примере из hardhad но можно и через ether вывать через
 // new ethers.Contract(address, abi, owner);
-const data = privateSellFactory.interface.encodeFunctionData("deposit", [{...deposit, signature}]);
+const data = privateSaleFactory.interface.encodeFunctionData("deposit", [{...deposit, signature}]);
 
 // Данные готовы. Можно передавать на фронт для отправки пользователем
 
 await addr1.sendTransaction({
   from: addr1.address,
-  to: privateSellContractAddress,
+  to: privateSaleContractAddress,
   data: data,
   value: deposit.amount
 })
 
 ```
 
+Для получения обновленной информации 
+
+```ts
+// privateSaleContract.getStats(wave: unit8);
+
+privateSaleContract.getStats(1);
+```
+В ответ получаем информацию о волне
+
+
+Можно подписаться на события
+
+```solidity
+
+struct Deposit {
+  uint256 tokenAmount;
+  uint256 amount;
+  uint256 cost;
+  uint8 wave;
+  uint256 createdAt;
+  uint256 withdrawal;
+}
+
+event Deposited(address indexed from, Deposit _value); // Отправляется когда завершен депозит
+event SaleOpened(); // Отправляется при открытии продаж
+event SaleClosed(); // Отправляется при закрытии продаж
+
+```
+    
+
+Метод для получения баланса принятых депозитов в eth 
+```solidity
+function getBalance() public view returns (uint256);
+```
+
+Метод для получения суммы депозитов
+```solidity
+function depositSum() public view returns (uint256);
+```
