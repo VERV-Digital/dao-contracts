@@ -7,6 +7,9 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import {PrivateSell, PrivateSell__factory, VRVBeta} from "../typechain-types";
+import {EIP712Domain, EIP712TypeDefinition} from "../helpers/EIP712.types";
+import {signTypedData} from "../helpers/EIP712";
+import {splitSignature} from "@ethersproject/bytes";
 
 
 describe("Private sell smart contract", function () {
@@ -14,13 +17,26 @@ describe("Private sell smart contract", function () {
   let vrvToken: VRVBeta;
   let sellToken: PrivateSell;
   let sellFactory: PrivateSell__factory;
+  let sellAddress: string;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
   let addr2: SignerWithAddress
   let addrs: SignerWithAddress[];
 
+  const types: EIP712TypeDefinition = {
+    DepositRequest: [
+      { name: "to", type: "address" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "amount", type: "uint256" },
+      { name: "cost", type: "uint256" },
+      { name: "wave", type: "uint8" }
+    ]
+  };
 
-  const SIGNING_DOMAIN = "VERV-Private-Sell";
+  let domain: EIP712Domain;
+
+
+  const SIGNING_DOMAIN = "VERVPRIVATESELL";
   const SIGNATURE_VERSION = "1";
 
   const VERV_INIT_DEFAULT: bigint = 7_500_000_000_000_000_000_000_000n;
@@ -56,6 +72,15 @@ describe("Private sell smart contract", function () {
     vrvToken = vrvContract;
     sellToken = contractSell;
     sellFactory = factorySell;
+
+    sellAddress = await sellToken.getAddress();
+
+    domain = {
+      name: SIGNING_DOMAIN,
+      version: SIGNATURE_VERSION,
+      chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number,
+      verifyingContract: sellAddress,
+    }
   });
 
   describe("Deployment", function () {
@@ -118,21 +143,11 @@ describe("Private sell smart contract", function () {
         wave: 1
       };
 
-      let signature = await owner.signTypedData({
-        name: SIGNING_DOMAIN,
-        version: SIGNATURE_VERSION,
-        verifyingContract: await sellToken.getAddress(),
-        chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId),
-      }, {
-        DepositRequest: [
-          {name: "to", type: "address"},
-          {name: "tokenAmount", type: "uint256"},
-          {name: "amount", type: "uint256"},
-          {name: "cost", type: "uint256"},
-          {name: "wave", type: "uint"},
-        ]
-      }, dep)
+      const signature = await signTypedData(domain, types, dep, owner);
 
+      const { v, r, s } = splitSignature(signature)
+
+      console.log(v, r, s);
 
       const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
       console.log("data", data);

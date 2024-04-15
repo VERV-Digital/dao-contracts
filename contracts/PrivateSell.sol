@@ -15,7 +15,7 @@ contract PrivateSell is EIP712, Ownable {
     using Math for uint256;
     using Address for address;
 
-    string private constant SIGNING_DOMAIN = "VERV-Private-Sell";
+    string private constant SIGNING_DOMAIN = "VERVPRIVATESELL";
     string private constant SIGNATURE_VERSION = "1";
 
     error PrivateSellSaleIsOpen();
@@ -30,7 +30,7 @@ contract PrivateSell is EIP712, Ownable {
         uint256 tokenAmount;
         uint256 amount;
         uint256 cost;
-        uint wave;
+        uint8 wave;
         uint256 createdAt;
         uint256 withdrawal;
     }
@@ -40,19 +40,19 @@ contract PrivateSell is EIP712, Ownable {
         uint256 tokenAmount;
         uint256 amount;
         uint256 cost;
-        uint wave;
+        uint8 wave;
         bytes signature;
     }
 
     struct WaveInfo {
-        uint index;
+        uint8 index;
         uint256 limit;
         uint256 deposit;
         uint256 depositToken;
         uint depositCount;
     }
 
-    uint private _depositSum;
+    uint256 private _depositSum;
 
     uint256 private _softCap;
     uint256 private _hardCap;
@@ -61,7 +61,7 @@ contract PrivateSell is EIP712, Ownable {
 
     mapping(address => Deposit[]) private _deposits;
 
-    mapping(uint => WaveInfo) private _waveInfo;
+    mapping(uint8 => WaveInfo) private _waveInfo;
 
     bool private _openSale;
 
@@ -94,7 +94,7 @@ contract PrivateSell is EIP712, Ownable {
         _softCap = softCap;
         _hardCap = hardCap;
 
-        for (uint i = 0; i < 10; i++) {
+        for (uint8 i = 0; i < 10; i++) {
             _waveInfo[i] = WaveInfo(
                 i, waveLimit, 0, 0, 0
             );
@@ -110,14 +110,13 @@ contract PrivateSell is EIP712, Ownable {
 
         address signer = _verifyDepositRequest(request);
 
-        console.log("o", owner());
-        console.log("s", signer);
-        console.log("sender", _msgSender());
+        console.log("contract owner", owner());
+        console.log("contract signer", signer);
+        console.log("contract sender", _msgSender());
 
-//        TODO: Не верный signer стоит
-//        if (owner() != signer) {
-//            revert PrivateSellFailedSignature(signer);
-//        }
+        if (owner() != signer) {
+            revert PrivateSellFailedSignature(signer);
+        }
 
         require(request.wave >= 1, "Wave >= 1");
         require(request.to == _msgSender(), "sender != to");
@@ -193,21 +192,25 @@ contract PrivateSell is EIP712, Ownable {
     }
 
     function _hashDepositRequest(DepositRequest calldata request) internal view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(
-            keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint wave)"),
-            request.to,
-            request.tokenAmount,
-            request.amount,
-            request.cost,
-            request.wave
-        )));
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint8 wave)"),
+                    request.to,
+                    request.tokenAmount,
+                    request.amount,
+                    request.cost,
+                    request.wave
+                )
+            )
+        );
     }
 
     function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
-    function getStats(uint wave) public view returns (WaveInfo memory) {
+    function getStats(uint8 wave) public view returns (WaveInfo memory) {
         require(wave >= 1, "Wave >= 1");
         require(wave <= 10, "Wave <= 10");
 
