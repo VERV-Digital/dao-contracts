@@ -20,6 +20,9 @@ contract PrivateSale is EIP712, Ownable {
 
     error PrivateSaleSaleIsOpen();
     error PrivateSaleSaleIsFinish();
+    error PrivateSaleDepositExpired();
+    error PrivateSaleFailedWaveIndex();
+    error PrivateSaleFailedSender();
     error PrivateSaleFailedSignature(address signer);
     error PrivateSaleWaveLimitExceeded(uint256 limit);
     error PrivateSaleInsufficientBalance();
@@ -44,6 +47,7 @@ contract PrivateSale is EIP712, Ownable {
         uint256 amount;
         uint256 cost;
         uint8 wave;
+        uint256 expireTo;
         bytes signature;
     }
 
@@ -89,7 +93,6 @@ contract PrivateSale is EIP712, Ownable {
         _success = false;
     }
 
-
     function openSale(
         uint256 softCap,
         uint256 hardCap,
@@ -118,17 +121,21 @@ contract PrivateSale is EIP712, Ownable {
 
         address signer = _verifyDepositRequest(request);
 
-        console.log("contract owner", owner());
-        console.log("contract signer", signer);
-        console.log("contract sender", _msgSender());
-
         if (owner() != signer) {
             revert PrivateSaleFailedSignature(signer);
         }
 
-        require(request.wave >= 1, "Wave >= 1");
-        require(request.to == _msgSender(), "sender != to");
-        require(request.wave <= 10, "Wave <= 10");
+        if (request.wave >= 10) {
+            revert PrivateSaleFailedWaveIndex();
+        }
+
+        if (request.to != _msgSender()) {
+            revert PrivateSaleFailedSender();
+        }
+
+        if (request.expireTo <= block.timestamp) {
+            revert PrivateSaleDepositExpired();
+        }
 
         if (_waveInfo[request.wave].limit < request.tokenAmount) {
             revert PrivateSaleWaveLimitExceeded(_waveInfo[request.wave].limit);
@@ -154,7 +161,7 @@ contract PrivateSale is EIP712, Ownable {
         _waveInfo[request.wave].depositCount++;
         _waveInfo[request.wave].limit -= request.tokenAmount;
 
-        _depositSum += request.amount;
+        _depositSum += request.tokenAmount;
 
         emit Deposited(_msgSender(), dep);
     }
@@ -190,12 +197,6 @@ contract PrivateSale is EIP712, Ownable {
     function _verifyDepositRequest(DepositRequest calldata request) internal view returns (address) {
         bytes32 digest = _hashDepositRequest(request);
 
-        console.log("contract to", request.to);
-        console.log("contract tokenAmount", request.tokenAmount);
-        console.log("contract amount", request.amount);
-        console.log("contract cost", request.cost);
-        console.log("contract wave", request.wave);
-
         return ECDSA.recover(digest, request.signature);
     }
 
@@ -203,12 +204,13 @@ contract PrivateSale is EIP712, Ownable {
         return _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint8 wave)"),
+        keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint8 wave,uint256 expireTo)"),
                     request.to,
                     request.tokenAmount,
                     request.amount,
                     request.cost,
-                    request.wave
+                    request.wave,
+                    request.expireTo
                 )
             )
         );
@@ -219,8 +221,9 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function getStats(uint8 wave) public view returns (WaveInfo memory) {
-        require(wave >= 1, "Wave >= 1");
-        require(wave <= 10, "Wave <= 10");
+        if (wave >= 10) {
+            revert PrivateSaleFailedWaveIndex();
+        }
 
         return _waveInfo[wave];
     }
