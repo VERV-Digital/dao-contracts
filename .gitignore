@@ -15,3 +15,6 @@ node_modules
 
 .idea
 ignition/deployments
+
+# Remix files
+/contracts/artifacts
