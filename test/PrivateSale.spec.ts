@@ -46,6 +46,8 @@ describe("Private sell smart contract", function () {
   const SOFT_DEFAULT: bigint = 15_000_000_000_000_000_000n;
   const HARD_DEFAULT: bigint = 40_000_000_000_000_000_000n;
 
+  const AUTO_FINISH: number = Math.round(Date.now() / 1000) + (60 * 60 * 24 * 12);
+
   async function deployFixture() {
     let [coinOwner] = await ethers.getSigners();
 
@@ -109,7 +111,7 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       expect(await sellToken.getChainID()).to.equal(await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number);
       await sellToken.getStats(0)
@@ -124,28 +126,30 @@ describe("Private sell smart contract", function () {
       expect(stats[4]).to.equal(0);
 
       expect(await sellToken.getBalance()).to.equal(0);
+      expect(await sellToken.getTokenBalance()).to.equal(VERV_INIT_DEFAULT);
       expect(await sellToken.depositSum()).to.equal(0);
+      expect(await sellToken.tokenDepositSum()).to.equal(0);
     });
 
     it("Должен произойти сбой в проверить состояние открытия продажи по причине уже открытой продажи", async function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
-      await expect(sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT)).to.be.revertedWithCustomError(sellToken, 'PrivateSaleSaleIsOpen')
+      await expect(sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH)).to.be.revertedWithCustomError(sellToken, 'PrivateSaleSaleIsOpen')
     });
     it("Должен произойти сбой в проверить состояние открытия продажи по причине вызова метода не владельцем", async function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await expect(sellToken.connect(addr1).openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT)).to.be.revertedWithCustomError(sellToken, 'OwnableUnauthorizedAccount')
+      await expect(sellToken.connect(addr1).openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH)).to.be.revertedWithCustomError(sellToken, 'OwnableUnauthorizedAccount')
     });
 
     it("Должен проверить состояние открытия продажи", async function () {
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await expect(sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH)).to.be.emit(sellToken, "SaleOpened");
     });
 
   });
@@ -156,7 +160,7 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -201,7 +205,7 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -241,11 +245,12 @@ describe("Private sell smart contract", function () {
       expect(stats[4]).to.equal(0);
 
     });
+
     it("Должен произойти сбой совершении депозита по причине отправки транзакции другим пользователем", async function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -290,7 +295,7 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -335,7 +340,7 @@ describe("Private sell smart contract", function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -377,11 +382,12 @@ describe("Private sell smart contract", function () {
       expect(stats[4]).to.equal(0);
 
     });
+
     it("Должен произойти сбой совершении депозита по причине вызова транзакции после истечения установленного срока", async function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -422,15 +428,117 @@ describe("Private sell smart contract", function () {
 
     });
 
+    it("Должен произойти сбой совершении депозита по причине автоматического закрытия продажи", async function () {
+
+      await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
+
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
+
+      let current = Math.round(Date.now() / 1000);
+
+      const dep = {
+        to: addr1.address,
+        tokenAmount: VERV_INIT_DEFAULT,
+        amount: 7178957041000000,
+        cost: 7178957041000,
+        wave: 0,
+        expireTo: current + 3600
+      };
+
+      const signature = await signTypedData(domain, types, dep, owner);
+
+      const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
+
+      let stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(750000000000000000000000n);
+      expect(stats[2]).to.equal(0);
+      expect(stats[3]).to.equal(0);
+      expect(stats[4]).to.equal(0);
+
+      await time.setNextBlockTimestamp(AUTO_FINISH);
+
+      await expect(addr1.sendTransaction({
+        to: sellAddress,
+        data: data,
+        value: dep.amount - 100
+      })).to.be.revertedWithCustomError(sellToken, 'PrivateSaleSaleIsFinish()')
+
+      stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(750000000000000000000000n);
+      expect(stats[2]).to.equal(0);
+      expect(stats[3]).to.equal(0);
+      expect(stats[4]).to.equal(0);
+    });
+
     it("Должен произойти сбой совершении депозита по причине завершения торгов", async function () {
 
+      await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
+
+      await sellToken.openSale(71789570410000, 717895704100000, WAVE_INIT_DEFAULT, AUTO_FINISH);
+
+      let current = Math.round(Date.now() / 1000);
+
+      const dep = {
+        to: addr1.address,
+        tokenAmount: 1000000000000000000000n,
+        amount: 7178957041000000,
+        cost: 7178957041000,
+        wave: 0,
+        expireTo: current + 3600
+      };
+
+      const signature = await signTypedData(domain, types, dep, owner);
+
+      const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
+
+      let stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(750000000000000000000000n);
+      expect(stats[2]).to.equal(0);
+      expect(stats[3]).to.equal(0);
+      expect(stats[4]).to.equal(0);
+
+      await time.setNextBlockTimestamp(current + 10);
+
+      await expect(addr1.sendTransaction({
+        to: sellAddress,
+        data: data,
+        value: dep.amount
+      })).to.emit(sellToken, "Deposited").withArgs(addr1.address, [
+        dep.tokenAmount,
+        dep.amount,
+        dep.cost,
+        dep.wave,
+        current + 10,
+        0
+      ]).emit(sellToken, "SaleClosed");
+
+      stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(749000000000000000000000n);
+      expect(stats[2]).to.equal(7178957041000000n);
+      expect(stats[3]).to.equal(1000000000000000000000n);
+      expect(stats[4]).to.equal(1);
+
+      expect(await sellToken.getBalance()).to.equal(dep.amount);
+      expect(await sellToken.getTokenBalance()).to.equal(VERV_INIT_DEFAULT);
+      expect(await sellToken.depositSum()).to.equal(dep.amount);
+      expect(await sellToken.tokenDepositSum()).to.equal(dep.tokenAmount);
+
+      await expect(addr1.sendTransaction({
+        to: sellAddress,
+        data: data,
+        value: dep.amount - 100
+      })).to.be.revertedWithCustomError(sellToken, 'PrivateSaleSaleIsFinish()')
     });
 
     it("Должен совершить депозит", async function () {
 
       await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
 
-      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT);
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
 
       let current = Math.round(Date.now() / 1000);
 
@@ -477,11 +585,30 @@ describe("Private sell smart contract", function () {
       expect(stats[4]).to.equal(1);
 
       expect(await sellToken.getBalance()).to.equal(dep.amount);
-      expect(await sellToken.depositSum()).to.equal(dep.tokenAmount);
+      expect(await sellToken.getTokenBalance()).to.equal(VERV_INIT_DEFAULT);
+      expect(await sellToken.depositSum()).to.equal(dep.amount);
+      expect(await sellToken.tokenDepositSum()).to.equal(dep.tokenAmount);
     });
   });
 
   describe("Finish", function () {
+
+    it("Должен произойти сбой по причине открытых продаж", async function () {
+
+      await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
+
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
+      await expect(sellToken.commit(owner.address, 1)).to.be.revertedWithCustomError(sellToken, 'PrivateSaleSaleIsOpen()')
+    });
+
+    it("Должен произойти сбой по причине вызовом метода не владельцем контракта", async function () {
+
+      await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
+
+      await sellToken.openSale(SOFT_DEFAULT, HARD_DEFAULT, WAVE_INIT_DEFAULT, AUTO_FINISH);
+
+      await expect(sellToken.connect(addr2).commit(owner.address, 1)).to.be.revertedWithCustomError(sellToken, 'OwnableUnauthorizedAccount')
+    });
 
     it("Должен произойти возврат из за не набранного soft", async function () {
 
@@ -489,6 +616,65 @@ describe("Private sell smart contract", function () {
 
     it("Должен произойти перевод EHT и остатков VRV на баланс владельца при набранном soft", async function () {
 
+      await vrvToken.transfer(await sellToken.getAddress(), VERV_INIT_DEFAULT);
+
+      await sellToken.openSale(1, 2, WAVE_INIT_DEFAULT, AUTO_FINISH);
+
+      let current = Math.round(Date.now() / 1000);
+
+      const dep = {
+        to: addr1.address,
+        tokenAmount: 1000000000000000000000n,
+        amount: 7178957041000000,
+        cost: 7178957041000,
+        wave: 0,
+        expireTo: current + 3600
+      };
+
+      const signature = await signTypedData(domain, types, dep, owner);
+
+      const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
+
+      let stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(750000000000000000000000n);
+      expect(stats[2]).to.equal(0);
+      expect(stats[3]).to.equal(0);
+      expect(stats[4]).to.equal(0);
+
+      await time.setNextBlockTimestamp(current + 10);
+
+      await expect(addr1.sendTransaction({
+        to: sellAddress,
+        data: data,
+        value: dep.amount
+      })).to.emit(sellToken, "Deposited").withArgs(addr1.address, [
+        dep.tokenAmount,
+        dep.amount,
+        dep.cost,
+        dep.wave,
+        current + 10,
+        0
+      ]).emit(sellToken, "SaleClosed");
+
+      stats = await sellToken.getStats(0);
+      expect(stats[0]).to.equal(0);
+      expect(stats[1]).to.equal(749000000000000000000000n);
+      expect(stats[2]).to.equal(7178957041000000n);
+      expect(stats[3]).to.equal(1000000000000000000000n);
+      expect(stats[4]).to.equal(1);
+
+      expect(await sellToken.getBalance()).to.equal(dep.amount);
+      expect(await sellToken.getTokenBalance()).to.equal(VERV_INIT_DEFAULT);
+      expect(await sellToken.depositSum()).to.equal(dep.amount);
+      expect(await sellToken.tokenDepositSum()).to.equal(dep.tokenAmount);
+
+      let tokenBalance = await sellToken.getTokenBalance();
+      let balance = await sellToken.getBalance();
+      const tx = sellToken.commit(addr2.address, balance);
+
+      await expect(tx).to.changeTokenBalance(vrvToken, addr2, tokenBalance);
+      await expect(tx).to.changeEtherBalance(addr2, balance);
     });
 
   });

@@ -60,13 +60,17 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     uint256 private _depositSum;
+    uint256 private _tokenDepositSum;
 
     uint256 private _softCap;
     uint256 private _hardCap;
+    uint private _autoFinish;
 
     VRVBeta private _token;
 
     mapping(address => Deposit[]) private _deposits;
+
+    address[] private _depositAddressList;
 
     mapping(uint8 => WaveInfo) private _waveInfo;
 
@@ -80,6 +84,14 @@ contract PrivateSale is EIP712, Ownable {
 
     function depositSum() public view returns (uint256) {
         return _depositSum;
+    }
+
+    function tokenDepositSum() public view returns (uint256) {
+        return _tokenDepositSum;
+    }
+
+    function allDeposits(address to) public view returns (Deposit[] memory) {
+        return _deposits[to];
     }
 
     constructor(address vrvToken)
@@ -96,7 +108,8 @@ contract PrivateSale is EIP712, Ownable {
     function openSale(
         uint256 softCap,
         uint256 hardCap,
-        uint256 waveLimit
+        uint256 waveLimit,
+        uint autoFinish
     ) external onlyOwner {
         if (_openSale == true) {
             revert PrivateSaleSaleIsOpen();
@@ -104,6 +117,7 @@ contract PrivateSale is EIP712, Ownable {
 
         _softCap = softCap;
         _hardCap = hardCap;
+        _autoFinish = autoFinish;
 
         for (uint8 i = 0; i < 10; i++) {
             _waveInfo[i] = WaveInfo(
@@ -112,9 +126,13 @@ contract PrivateSale is EIP712, Ownable {
         }
 
         _openSale = true;
+
+        emit SaleOpened();
     }
 
     function deposit(DepositRequest calldata request) payable public {
+        _calc();
+
         if (_finishSale) {
             revert PrivateSaleSaleIsFinish();
         }
@@ -154,6 +172,10 @@ contract PrivateSale is EIP712, Ownable {
             0
         );
 
+        if (!_deposits[_msgSender()].length > 0) {
+            _depositAddressList.push(_msgSender());
+        }
+
         _deposits[_msgSender()].push(dep);
 
         _waveInfo[request.wave].deposit += request.amount;
@@ -161,29 +183,45 @@ contract PrivateSale is EIP712, Ownable {
         _waveInfo[request.wave].depositCount++;
         _waveInfo[request.wave].limit -= request.tokenAmount;
 
-        _depositSum += request.tokenAmount;
+        _depositSum += request.amount;
+        _tokenDepositSum += request.tokenAmount;
 
         emit Deposited(_msgSender(), dep);
+
+        _calc();
     }
 
     function commit(address payable transferTo, uint256 amount) public onlyOwner {
         _calc();
-        if (_success) {
-            transferTo.transfer(amount);
+        if (_finishSale && _success) {
+            _releaseDeposits(transferTo, amount);
+        } else if (_finishSale && _failed) {
+            _revertDeposits();
+        } else {
+            revert PrivateSaleSaleIsOpen();
         }
     }
 
-    function rollback() public onlyOwner {
-        _calc();
-        if (_finishSale && _failed) {
-//            TODO
-        }
+    function _releaseDeposits(address payable transferTo, uint256 amount) internal {
+        _token.transfer(transferTo, getTokenBalance());
+        transferTo.transfer(getBalance());
+    }
+
+    function _revertDeposits() internal {
+//        for (uint8 i = 0; i < 10; i++) {
+//            _waveInfo[i] = WaveInfo(
+//                i, waveLimit, 0, 0, 0
+//            );
+//        }
+
     }
 
     function _calc() internal {
         if (_depositSum < _softCap) {
             _failed = true;
+            _success = false;
         }
+
         if (_depositSum >= _softCap) {
             _failed = false;
             _success = true;
@@ -191,6 +229,14 @@ contract PrivateSale is EIP712, Ownable {
 
         if (_depositSum >= _hardCap) {
             _finishSale = true;
+
+            emit SaleClosed();
+        }
+
+        if (block.timestamp >= _autoFinish) {
+            _finishSale = true;
+
+            emit SaleClosed();
         }
     }
 
@@ -218,6 +264,10 @@ contract PrivateSale is EIP712, Ownable {
 
     function getBalance() public view returns (uint256) {
         return address(this).balance;
+    }
+
+    function getTokenBalance() public view returns (uint256) {
+        return _token.balanceOf(address(this));
     }
 
     function getStats(uint8 wave) public view returns (WaveInfo memory) {
