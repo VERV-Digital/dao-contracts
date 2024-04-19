@@ -18,8 +18,9 @@ contract PrivateSale is EIP712, Ownable {
     string private constant SIGNING_DOMAIN = "VERVPRIVATESALE";
     string private constant SIGNATURE_VERSION = "1";
 
-    error PrivateSaleSaleIsOpen();
-    error PrivateSaleSaleIsFinish();
+    error PrivateSaleOpened();
+    error PrivateSaleClosed();
+    error PrivateSaleDepositBidNotFound();
     error PrivateSaleDepositExpired();
     error PrivateSaleFailedWaveIndex();
     error PrivateSaleFailedSender();
@@ -27,17 +28,14 @@ contract PrivateSale is EIP712, Ownable {
     error PrivateSaleWaveLimitExceeded(uint256 limit);
     error PrivateSaleInsufficientBalance();
 
-    event Deposited(address indexed from, Deposit _value);
-
-    event SaleOpened();
-    event SaleClosed();
-
     struct Deposit {
         uint256 tokenAmount;
         uint256 amount;
         uint256 cost;
+        uint256 requestValue;
         uint8 wave;
         uint256 createdAt;
+        bool notBid;
         uint256 withdrawal;
     }
 
@@ -46,220 +44,98 @@ contract PrivateSale is EIP712, Ownable {
         uint256 tokenAmount;
         uint256 amount;
         uint256 cost;
+        uint256 requestValue;
         uint8 wave;
         uint256 expireTo;
+        bool notBid;
+        bytes signature;
+    }
+
+    struct Bid {
+        address to;
+        uint256 tokenAmount;
+        uint256 amount;
+        uint256 cost;
+        uint256 requestValue;
+        uint8 wave;
+    }
+
+    struct BidRequest {
+        address to;
+        uint256 tokenAmount;
+        uint256 amount;
+        uint256 cost;
+        uint256 requestValue;
+        uint8 wave;
         bytes signature;
     }
 
     struct WaveInfo {
         uint8 index;
         uint256 limit;
+        uint256 bid;
         uint256 deposit;
         uint256 depositToken;
         uint depositCount;
+        uint bidCount;
     }
 
-    uint256 private _depositSum;
-    uint256 private _tokenDepositSum;
+    struct Log {
+        address to;
+        string action;
+        uint256 amount;
+        uint256 tokenAmount;
+        uint256 cost;
+        uint8 wave;
+        uint256 createdAt;
+    }
 
-    uint256 private _softCap;
-    uint256 private _hardCap;
-    uint private _autoFinish;
+    event Bet(address indexed from, Bid _value);
+    event Deposited(address indexed from, Deposit _value);
+
+    event SaleOpened();
+    event SaleClosed();
+    event SaleReleased();
+    event SaleReverted();
 
     VRVBeta private _token;
 
-    mapping(address => Deposit[]) private _deposits;
+    bool public opened;
+    bool public closed;
+    uint256 public closeAt;
 
-    address[] private _depositAddressList;
+    uint256 private _softCap;
+    uint256 private _hardCap;
 
-    mapping(uint8 => WaveInfo) private _waveInfo;
+    uint8 private _waveCount;
+    mapping(uint8 => WaveInfo) private _waves;
+    WaveInfo private _afterSaleWave;
+    bool private _registeredAfterSaleWave;
 
-    bool private _openSale;
+    uint256 private _bidSum;
+    uint256 private _depositSum;
+    uint256 private _soldSum;
 
-    bool private _finishSale;
+    // Индекс волны => (address => Bid)
+    mapping(uint8 => mapping(address => Bid)) private _bids;
 
-    bool private _success;
+    // Индекс депозита
+    uint256 private _depositIndex;
+    uint256[] private _allDeposits;
+    mapping(uint256 depositIndex => Deposit) private _deposits;
+    mapping(address owner => uint256[]) private _depositOwners;
 
-    bool private _failed;
-
-    function depositSum() public view returns (uint256) {
-        return _depositSum;
-    }
-
-    function tokenDepositSum() public view returns (uint256) {
-        return _tokenDepositSum;
-    }
-
-    function allDeposits(address to) public view returns (Deposit[] memory) {
-        return _deposits[to];
-    }
+    Log[] private _log;
 
     constructor(address vrvToken)
         EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION)
         Ownable(_msgSender())
     {
         _token = VRVBeta(vrvToken);
-        _openSale = false;
-        _finishSale = false;
-        _failed = false;
-        _success = false;
-    }
 
-    function openSale(
-        uint256 softCap,
-        uint256 hardCap,
-        uint256 waveLimit,
-        uint autoFinish
-    ) external onlyOwner {
-        if (_openSale == true) {
-            revert PrivateSaleSaleIsOpen();
-        }
-
-        _softCap = softCap;
-        _hardCap = hardCap;
-        _autoFinish = autoFinish;
-
-        for (uint8 i = 0; i < 10; i++) {
-            _waveInfo[i] = WaveInfo(
-                i, waveLimit, 0, 0, 0
-            );
-        }
-
-        _openSale = true;
-
-        emit SaleOpened();
-    }
-
-    function deposit(DepositRequest calldata request) payable public {
-        _calc();
-
-        if (_finishSale) {
-            revert PrivateSaleSaleIsFinish();
-        }
-
-        address signer = _verifyDepositRequest(request);
-
-        if (owner() != signer) {
-            revert PrivateSaleFailedSignature(signer);
-        }
-
-        if (request.wave >= 10) {
-            revert PrivateSaleFailedWaveIndex();
-        }
-
-        if (request.to != _msgSender()) {
-            revert PrivateSaleFailedSender();
-        }
-
-        if (request.expireTo <= block.timestamp) {
-            revert PrivateSaleDepositExpired();
-        }
-
-        if (_waveInfo[request.wave].limit < request.tokenAmount) {
-            revert PrivateSaleWaveLimitExceeded(_waveInfo[request.wave].limit);
-        }
-
-        if (msg.value < request.amount) {
-            revert PrivateSaleInsufficientBalance();
-        }
-
-        Deposit memory dep = Deposit(
-            request.tokenAmount,
-            request.amount,
-            request.cost,
-            request.wave,
-            block.timestamp,
-            0
-        );
-
-        if (!_deposits[_msgSender()].length > 0) {
-            _depositAddressList.push(_msgSender());
-        }
-
-        _deposits[_msgSender()].push(dep);
-
-        _waveInfo[request.wave].deposit += request.amount;
-        _waveInfo[request.wave].depositToken += request.tokenAmount;
-        _waveInfo[request.wave].depositCount++;
-        _waveInfo[request.wave].limit -= request.tokenAmount;
-
-        _depositSum += request.amount;
-        _tokenDepositSum += request.tokenAmount;
-
-        emit Deposited(_msgSender(), dep);
-
-        _calc();
-    }
-
-    function commit(address payable transferTo, uint256 amount) public onlyOwner {
-        _calc();
-        if (_finishSale && _success) {
-            _releaseDeposits(transferTo, amount);
-        } else if (_finishSale && _failed) {
-            _revertDeposits();
-        } else {
-            revert PrivateSaleSaleIsOpen();
-        }
-    }
-
-    function _releaseDeposits(address payable transferTo, uint256 amount) internal {
-        _token.transfer(transferTo, getTokenBalance());
-        transferTo.transfer(getBalance());
-    }
-
-    function _revertDeposits() internal {
-//        for (uint8 i = 0; i < 10; i++) {
-//            _waveInfo[i] = WaveInfo(
-//                i, waveLimit, 0, 0, 0
-//            );
-//        }
-
-    }
-
-    function _calc() internal {
-        if (_depositSum < _softCap) {
-            _failed = true;
-            _success = false;
-        }
-
-        if (_depositSum >= _softCap) {
-            _failed = false;
-            _success = true;
-        }
-
-        if (_depositSum >= _hardCap) {
-            _finishSale = true;
-
-            emit SaleClosed();
-        }
-
-        if (block.timestamp >= _autoFinish) {
-            _finishSale = true;
-
-            emit SaleClosed();
-        }
-    }
-
-    function _verifyDepositRequest(DepositRequest calldata request) internal view returns (address) {
-        bytes32 digest = _hashDepositRequest(request);
-
-        return ECDSA.recover(digest, request.signature);
-    }
-
-    function _hashDepositRequest(DepositRequest calldata request) internal view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(
-                abi.encode(
-        keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint8 wave,uint256 expireTo)"),
-                    request.to,
-                    request.tokenAmount,
-                    request.amount,
-                    request.cost,
-                    request.wave,
-                    request.expireTo
-                )
-            )
-        );
+        opened = false;
+        closed = false;
+        _registeredAfterSaleWave = false;
     }
 
     function getBalance() public view returns (uint256) {
@@ -270,24 +146,287 @@ contract PrivateSale is EIP712, Ownable {
         return _token.balanceOf(address(this));
     }
 
-    function getStats(uint8 wave) public view returns (WaveInfo memory) {
-        if (wave >= 10) {
-            revert PrivateSaleFailedWaveIndex();
-        }
-
-        return _waveInfo[wave];
+    function getBidSum() public view returns (uint256) {
+        return _bidSum;
     }
 
-    /**
-    * @notice Returns the chain id of the current blockchain.
-    * @dev This is used to workaround an issue with ganache returning different values from the on-chain chainid() function and
-    *  the eth_chainId RPC method. See https://github.com/protocol/nft-website/issues/121 for context.
-    */
-    function getChainID() external view returns (uint256) {
-        uint256 id;
-        assembly {
-            id := chainid()
-        }
-        return id;
+    function getDepositSum() public view returns (uint256) {
+        return _depositSum;
     }
+
+    function getSoldSum() public view returns (uint256) {
+        return _soldSum;
+    }
+
+    function openSale(
+        uint256 softCap,
+        uint256 hardCap,
+        uint8 waveCount,
+        uint256 waveLimit,
+        uint _closeAt
+    ) external onlyOwner {
+        if (opened == true) {
+            revert PrivateSaleOpened();
+        }
+
+        _softCap = softCap;
+        _hardCap = hardCap;
+        _waveCount = waveCount;
+        closeAt = _closeAt;
+
+        for (uint8 i = 0; i < _waveCount; i++) {
+            _waves[i] = WaveInfo(
+                i, waveLimit, 0, 0, 0, 0, 0
+            );
+        }
+
+        opened = true;
+
+        emit SaleOpened();
+    }
+
+    function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory) {
+        if (waveIndex >= _waveCount) {
+            return getAfterSaleWave();
+        }
+
+        return _waves[waveIndex];
+    }
+
+    function registerAfterWave(uint _closeAt) external onlyOwner {
+        uint256 afterWaveLimit = 0;
+
+        for (uint8 i = 0; i < _waveCount; i++) {
+            afterWaveLimit += _waves[i].limit - _waves[i].deposit;
+        }
+
+        _afterSaleWave = WaveInfo(_waveCount + 1, afterWaveLimit, 0, 0, 0, 0, 0);
+
+        closeAt = _closeAt;
+        _registeredAfterSaleWave = true;
+    }
+
+    function getAfterSaleWave() public view onlyOwner returns (WaveInfo memory) {
+        return _afterSaleWave;
+    }
+
+    function getLogs() external view returns(Log[] memory) {
+        return _log;
+    }
+
+    function bid(BidRequest calldata request) public payable {
+        if (closed) {
+            revert PrivateSaleClosed();
+        }
+
+        address signer = _getSignerBidRequest(request);
+
+        if (owner() != signer) {
+            revert PrivateSaleFailedSignature(signer);
+        }
+
+        if (msg.value < request.requestValue) {
+            revert PrivateSaleInsufficientBalance();
+        }
+
+    }
+
+    function getBid(address to, uint8 waveIndex) public returns(Bid memory) {
+        return _bids[waveIndex][to];
+    }
+
+    function deposit(DepositRequest calldata request) public payable {
+        _calculateCap();
+
+        if (closed) {
+            revert PrivateSaleClosed();
+        }
+
+        address signer = _getSignerDepositRequest(request);
+
+        if (owner() != signer) {
+            revert PrivateSaleFailedSignature(signer);
+        }
+
+        if (request.wave > _waveCount) {
+            if (_registeredAfterSaleWave) {
+                if (request.wave != _waveCount ) {
+                    revert PrivateSaleFailedWaveIndex();
+                }
+            } else {
+                revert PrivateSaleFailedWaveIndex();
+            }
+        } else {
+            if (_waves[request.wave].limit < request.tokenAmount) {
+                revert PrivateSaleWaveLimitExceeded(_waves[request.wave].limit);
+            }
+        }
+
+        if (request.to != _msgSender()) {
+            revert PrivateSaleFailedSender();
+        }
+
+        if (msg.value < request.requestValue) {
+            revert PrivateSaleInsufficientBalance();
+        }
+
+        if (!request.notBid) {
+            Bid memory _bid = getBid(_msgSender(), request.wave);
+
+            if (_bid.to == address(0)) {
+                revert PrivateSaleDepositBidNotFound();
+            }
+        }
+
+        if (request.expireTo <= block.timestamp) {
+            revert PrivateSaleDepositExpired();
+        }
+
+        Deposit memory dep = Deposit(
+            request.tokenAmount,
+            request.amount,
+            request.cost,
+            request.requestValue,
+            request.wave,
+            block.timestamp,
+            request.notBid,
+            0
+        );
+
+        _deposits[_depositIndex] = dep;
+        _depositOwners[_msgSender()].push(_depositIndex);
+        _allDeposits.push(_depositIndex);
+        _depositIndex++;
+
+        if (request.wave > _waveCount) {
+            _afterSaleWave.deposit += request.amount;
+            _afterSaleWave.depositToken += request.tokenAmount;
+            _afterSaleWave.depositCount++;
+            _afterSaleWave.limit -= request.tokenAmount;
+        } else {
+            _waves[request.wave].deposit += request.amount;
+            _waves[request.wave].depositToken += request.tokenAmount;
+            _waves[request.wave].depositCount++;
+            _waves[request.wave].limit -= request.tokenAmount;
+        }
+
+        _depositSum += request.amount;
+        _soldSum += request.tokenAmount;
+
+        emit Deposited(_msgSender(), dep);
+
+        _calculateCap();
+    }
+
+    function getDepositIndexList() public view returns (uint256[] memory) {
+        return _allDeposits;
+    }
+
+    function getDeposit(uint256 index) public view returns (Deposit memory) {
+        return _deposits[index];
+    }
+
+    function _pushLog(Log memory log) internal {
+        _log.push(log);
+    }
+
+    function _getSignerBidRequest(BidRequest calldata request) internal view returns (address) {
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256("BidRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint8 wave)"),
+                    request.to,
+                    request.tokenAmount,
+                    request.amount,
+                    request.requestValue,
+                    request.cost,
+                    request.wave
+                )
+            )
+        );
+
+        return ECDSA.recover(digest, request.signature);
+    }
+
+    function _getSignerDepositRequest(DepositRequest calldata request) internal view returns (address) {
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint8 wave,uint256 expireTo,bool notBid)"),
+                    request.to,
+                    request.tokenAmount,
+                    request.amount,
+                    request.cost,
+                    request.requestValue,
+                    request.wave,
+                    request.expireTo,
+                    request.notBid
+                )
+            )
+        );
+
+        return ECDSA.recover(digest, request.signature);
+    }
+
+
+    function _calculateCap() internal {
+
+    }
+
+//
+//
+//
+//
+//    mapping(address => Deposit[]) private _deposits;
+//
+
+//
+//    function commit(address payable transferTo, uint256 amount) public onlyOwner {
+//        _calc();
+//        if (_finishSale && _success) {
+//            _releaseDeposits(transferTo, amount);
+//        } else if (_finishSale && _failed) {
+//            _revertDeposits();
+//        } else {
+//            revert PrivateSaleSaleIsOpen();
+//        }
+//    }
+//
+//    function _releaseDeposits(address payable transferTo, uint256 amount) internal {
+//        _token.transfer(transferTo, getTokenBalance());
+//        transferTo.transfer(getBalance());
+//    }
+//
+//    function _revertDeposits() internal {
+////        for (uint8 i = 0; i < 10; i++) {
+////            _waveInfo[i] = WaveInfo(
+////                i, waveLimit, 0, 0, 0
+////            );
+////        }
+//
+//    }
+//
+//    function _calc() internal {
+//        if (_depositSum < _softCap) {
+//            _failed = true;
+//            _success = false;
+//        }
+//
+//        if (_depositSum >= _softCap) {
+//            _failed = false;
+//            _success = true;
+//        }
+//
+//        if (_depositSum >= _hardCap) {
+//            _finishSale = true;
+//
+//            emit SaleClosed();
+//        }
+//
+//        if (block.timestamp >= _autoFinish) {
+//            _finishSale = true;
+//
+//            emit SaleClosed();
+//        }
+//    }
 }
