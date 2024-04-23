@@ -3,9 +3,8 @@ import {
   loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { VRVBeta } from "../../typechain-types";
 
 
@@ -15,8 +14,6 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
   let addr2: SignerWithAddress
-  let addrs: SignerWithAddress[];
-  let initSupply: string;
 
   async function deployCoinFixture() {
     let [coinOwner] = await ethers.getSigners();
@@ -30,17 +27,16 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
 
     await contract.waitForDeployment();
 
-    return {contract, contractInitSupply};
+    return {contract};
   }
 
   beforeEach(async function () {
 
-    [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+    [owner, addr1, addr2] = await ethers.getSigners();
 
-    const {contract, contractInitSupply} = await loadFixture(deployCoinFixture);
+    const {contract} = await loadFixture(deployCoinFixture);
 
     vrvToken = contract;
-    initSupply = contractInitSupply;
   });
 
   describe("Deployment", function () {
