@@ -23,11 +23,14 @@ contract PrivateSale is EIP712, Ownable {
     error PrivateSaleDepositBidNotFound();
     error PrivateSaleDepositBidExist();
     error PrivateSaleDepositExpired();
+    error PrivateSaleDepositFailedTokenAmount();
     error PrivateSaleFailedWaveIndex();
     error PrivateSaleFailedSender();
     error PrivateSaleFailedSignature(address signer);
     error PrivateSaleWaveLimitExceeded(uint256 limit);
     error PrivateSaleInsufficientBalance();
+    error PrivateSaleAfterWaveNotRegistered();
+    error PrivateSaleAfterWaveRegistered();
 
     struct Deposit {
         address payable to;
@@ -83,9 +86,15 @@ contract PrivateSale is EIP712, Ownable {
         uint bidCount;
     }
 
+    enum LogAction {
+        Bid,
+        Deposit,
+        BigDeposit
+    }
+
     struct Log {
         address to;
-        string action;
+        LogAction action;
         uint256 amount;
         uint256 tokenAmount;
         uint256 cost;
@@ -189,27 +198,39 @@ contract PrivateSale is EIP712, Ownable {
 
     function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory) {
         if (waveIndex >= _waveCount) {
-            return getAfterSaleWave();
+            if (_registeredAfterSaleWave) {
+                return getAfterSaleWave();
+            } else {
+                revert PrivateSaleFailedWaveIndex();
+            }
         }
 
         return _waves[waveIndex];
     }
 
     function registerAfterWave(uint _closeAt) external onlyOwner {
-        uint256 afterWaveLimit = 0;
+        if (!_registeredAfterSaleWave) {
+            uint256 afterWaveLimit = 0;
 
-        for (uint8 i = 0; i < _waveCount; i++) {
-            afterWaveLimit += _waves[i].limit - _waves[i].deposit;
+            for (uint8 i = 0; i < _waveCount; i++) {
+                afterWaveLimit += _waves[i].limit - _waves[i].deposit;
+            }
+
+            _afterSaleWave = WaveInfo(_waveCount, afterWaveLimit, 0, 0, 0, 0, 0);
+
+            closeAt = _closeAt;
+            _registeredAfterSaleWave = true;
+        } else {
+            revert PrivateSaleAfterWaveRegistered();
         }
-
-        _afterSaleWave = WaveInfo(_waveCount + 1, afterWaveLimit, 0, 0, 0, 0, 0);
-
-        closeAt = _closeAt;
-        _registeredAfterSaleWave = true;
     }
 
     function getAfterSaleWave() public view onlyOwner returns (WaveInfo memory) {
-        return _afterSaleWave;
+        if (_registeredAfterSaleWave) {
+            return _afterSaleWave;
+        }
+
+        revert PrivateSaleAfterWaveNotRegistered();
     }
 
     function getLogs() external view returns(Log[] memory) {
@@ -217,6 +238,8 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function bid(BidRequest calldata request) public payable {
+        _calculateCap();
+
         if (closed || !opened) {
             revert PrivateSaleClosed();
         }
@@ -259,6 +282,16 @@ contract PrivateSale is EIP712, Ownable {
         _waves[request.wave].bidCount++;
 
         emit Bet(request.to, _bids[request.wave][request.to]);
+
+        _pushLog(Log(
+            request.to,
+            LogAction.Bid,
+            request.amount,
+            request.tokenAmount,
+            request.cost,
+            request.wave,
+            block.timestamp
+        ));
     }
 
     function getBid(address to, uint8 waveIndex) public view returns(Bid memory) {
@@ -268,7 +301,7 @@ contract PrivateSale is EIP712, Ownable {
     function deposit(DepositRequest calldata request) public payable {
         _calculateCap();
 
-        if (closed) {
+        if (closed || !opened) {
             revert PrivateSaleClosed();
         }
 
@@ -276,20 +309,6 @@ contract PrivateSale is EIP712, Ownable {
 
         if (owner() != signer) {
             revert PrivateSaleFailedSignature(signer);
-        }
-
-        if (request.wave > _waveCount) {
-            if (_registeredAfterSaleWave) {
-                if (request.wave != _waveCount ) {
-                    revert PrivateSaleFailedWaveIndex();
-                }
-            } else {
-                revert PrivateSaleFailedWaveIndex();
-            }
-        } else {
-            if (_waves[request.wave].limit < request.tokenAmount) {
-                revert PrivateSaleWaveLimitExceeded(_waves[request.wave].limit);
-            }
         }
 
         if (request.to != _msgSender()) {
@@ -300,13 +319,37 @@ contract PrivateSale is EIP712, Ownable {
             revert PrivateSaleInsufficientBalance();
         }
 
-        if (!request.notBid) {
-            Bid memory _bid = getBid(_msgSender(), request.wave);
+        if (_registeredAfterSaleWave) {
+            if (request.wave != _waveCount ) {
+                revert PrivateSaleFailedWaveIndex();
+            }
 
-            if (_bid.to == address(0)) {
-                revert PrivateSaleDepositBidNotFound();
+            if (_afterSaleWave.limit < request.tokenAmount) {
+                revert PrivateSaleWaveLimitExceeded(_afterSaleWave.limit);
+            }
+        } else {
+            if (request.wave >= _waveCount) {
+                revert PrivateSaleFailedWaveIndex();
+            } else {
+                if (_waves[request.wave].limit < request.tokenAmount) {
+                    revert PrivateSaleWaveLimitExceeded(_waves[request.wave].limit);
+                }
+            }
+
+            if (!request.notBid) {
+                Bid memory _bid = getBid(_msgSender(), request.wave);
+
+                if (_bid.to == address(0)) {
+                    revert PrivateSaleDepositBidNotFound();
+                }
+
+                if (request.tokenAmount > _bid.tokenAmount) {
+                    revert PrivateSaleDepositFailedTokenAmount();
+                }
             }
         }
+
+
 
         if (request.expireTo <= block.timestamp) {
             revert PrivateSaleDepositExpired();
@@ -329,7 +372,7 @@ contract PrivateSale is EIP712, Ownable {
         _allDeposits.push(_depositIndex);
         _depositIndex++;
 
-        if (request.wave > _waveCount) {
+        if (request.wave >= _waveCount) {
             _afterSaleWave.deposit += request.amount;
             _afterSaleWave.depositToken += request.tokenAmount;
             _afterSaleWave.depositCount++;
@@ -347,6 +390,21 @@ contract PrivateSale is EIP712, Ownable {
         _token.transfer(request.to, request.tokenAmount);
 
         emit Deposited(_msgSender(), dep);
+
+        LogAction action = LogAction.Deposit;
+        if (request.notBid) {
+            action = LogAction.BigDeposit;
+        }
+
+        _pushLog(Log(
+            request.to,
+            action,
+            request.amount,
+            request.tokenAmount,
+            request.cost,
+            request.wave,
+            block.timestamp
+        ));
 
         _calculateCap();
     }
@@ -414,16 +472,18 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function _calculateCap() internal {
-        if (_depositSum < _softCap) {
-            _successful = false;
-        }
+        if (opened) {
+            if (_depositSum < _softCap) {
+                _successful = false;
+            }
 
-        if (_depositSum >= _softCap) {
-            _successful = true;
-        }
+            if (_depositSum >= _softCap) {
+                _successful = true;
+            }
 
-        if (_depositSum >= _hardCap || block.timestamp >= closeAt) {
-            _close();
+            if (_depositSum >= _hardCap || block.timestamp >= closeAt) {
+                _close();
+            }
         }
     }
 
@@ -433,10 +493,10 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function _revertDeposits(address payable transferTo) internal {
+        uint256 _fee = block.gaslimit / _depositIndex;
         for (uint256 i = 0; i < _depositIndex; i++) {
             Deposit memory dep = _deposits[i];
             if (dep.withdrawal == 0) {
-                uint256 _fee = block.gaslimit / _depositIndex;
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
                 _deposits[i] = dep;
