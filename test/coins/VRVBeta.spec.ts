@@ -7,7 +7,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { VRVBeta } from "../../typechain-types";
 
-
 describe("Base ERC20 coin VRV-Beta Token", function () {
 
   let vrvToken: VRVBeta;
