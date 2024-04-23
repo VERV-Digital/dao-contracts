@@ -1,5 +1,14 @@
 # VRV Смарт контракты
 
+## Coverage
+
+![Coverage](./docs/coverage.png)
+
+## Gas
+
+![Gas](./docs/gas.png)
+
+## Команды
 
 ```shell
 npx hardhat help
@@ -9,11 +18,7 @@ npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/PrivateSale.ts --network localhost
 ```
 
-## Coverage
-
-![Coverage](./docs/coverage.png)
-
-## Версии контрактов на 23.04.2024
+## Описание контрактов (23.04.2024)
 
 ### VRV
 
