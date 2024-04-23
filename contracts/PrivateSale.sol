@@ -217,7 +217,7 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function bid(BidRequest calldata request) public payable {
-        if (closed) {
+        if (closed || !opened) {
             revert PrivateSaleClosed();
         }
 
@@ -227,16 +227,20 @@ contract PrivateSale is EIP712, Ownable {
             revert PrivateSaleFailedSignature(signer);
         }
 
+        if (request.to != _msgSender()) {
+            revert PrivateSaleFailedSender();
+        }
+
         if (msg.value < request.requestValue) {
             revert PrivateSaleInsufficientBalance();
         }
 
-        if (this.getBid(request.to, request.wave).to != address(0)) {
-            revert PrivateSaleDepositBidExist();
+        if (request.wave >= _waveCount) {
+            revert PrivateSaleFailedWaveIndex();
         }
 
-        if (request.wave > _waveCount) {
-            revert PrivateSaleFailedWaveIndex();
+        if (this.getBid(request.to, request.wave).to != address(0)) {
+            revert PrivateSaleDepositBidExist();
         }
 
         _bids[request.wave][request.to] = Bid(
@@ -253,6 +257,8 @@ contract PrivateSale is EIP712, Ownable {
 
         _waves[request.wave].bid += request.requestValue;
         _waves[request.wave].bidCount++;
+
+        emit Bet(request.to, _bids[request.wave][request.to]);
     }
 
     function getBid(address to, uint8 waveIndex) public view returns(Bid memory) {
@@ -377,8 +383,8 @@ contract PrivateSale is EIP712, Ownable {
                     request.to,
                     request.tokenAmount,
                     request.amount,
-                    request.requestValue,
                     request.cost,
+                    request.requestValue,
                     request.wave
                 )
             )

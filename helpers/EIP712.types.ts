@@ -9,6 +9,7 @@ export type SolidityTypesAsString = "address"
     | "uint8"
     | "uint"
     | "uint256"
+    | "bool"
 
 export type EIP712TypeDefinition = {
     [key: string]: {
