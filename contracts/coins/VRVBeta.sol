@@ -49,6 +49,12 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable
         _rewards[wallet] = 0;
     }
 
+    function hasReward() view external returns (uint256) {
+        _finishReward();
+
+        return _rewards[_msgSender()];
+    }
+
     function claimReward() external {
         _finishReward();
 

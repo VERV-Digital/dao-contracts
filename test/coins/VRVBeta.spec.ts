@@ -23,9 +23,10 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
 
     const factory = (await ethers.getContractFactory("VRVBeta", coinOwner));
 
-    const contractInitSupply = "750000000000000000000000"
+    const contractInitSupply = "750000000000000000000000";
+    const rewardsAt = Math.round(Date.now() / 1000) + (60 * 60 * 24 * 30);
 
-    let contract = await factory.deploy(ethers.parseEther(contractInitSupply));
+    let contract = await factory.deploy(ethers.parseEther(contractInitSupply), rewardsAt);
 
     await contract.waitForDeployment();
 
@@ -80,6 +81,78 @@ describe("Base ERC20 coin VRV-Beta Token", function () {
       ).to.changeTokenBalances(vrvToken, [addr1], [100000]);
     });
 
+  });
+
+  describe("Rewards", function () {
+
+    it("Должен произойти сбой во всех методах наград по причине ограничения по времени наград", async function () {
+
+      await time.setNextBlockTimestamp(Math.round(Date.now() / 1000) + (60 * 60 * 24 * 30));
+
+      await expect(vrvToken.addReward(addr1.address, 100000))
+          .to.be
+          .revertedWithCustomError(vrvToken, "VRVBetaRewardsNotAvailable");
+
+      await time.setNextBlockTimestamp(Math.round(Date.now() / 1000) + (61 * 60 * 24 * 30));
+
+      await expect(vrvToken.removeReward(addr1.address))
+          .to.be
+          .revertedWithCustomError(vrvToken, "VRVBetaRewardsNotAvailable");
+
+      await time.setNextBlockTimestamp(Math.round(Date.now() / 1000) + (62 * 60 * 24 * 30));
+
+      await expect(vrvToken.hasReward())
+          .to.be
+          .revertedWithCustomError(vrvToken, "VRVBetaRewardsNotAvailable");
+
+      await time.setNextBlockTimestamp(Math.round(Date.now() / 1000) + (63 * 60 * 24 * 30));
+
+      await expect(vrvToken.claimReward())
+          .to.be
+          .revertedWithCustomError(vrvToken, "VRVBetaRewardsNotAvailable");
+    });
+
+    it("Должен произойти сбой в методе addReward по причине отсутствия прав", async function () {
+      await expect(vrvToken.connect(addr1).addReward(addr1.address, 100000))
+          .to.be
+          .revertedWithCustomError(vrvToken, "OwnableUnauthorizedAccount");
+
+      await expect(vrvToken.connect(addr1).removeReward(addr1.address))
+          .to.be
+          .revertedWithCustomError(vrvToken, "OwnableUnauthorizedAccount");
+    });
+
+    it("Должен произойти сбой в методе claimReward по причине отсутствия награды", async function () {
+      await expect(vrvToken.connect(addr1).claimReward())
+          .to.be
+          .revertedWithCustomError(vrvToken, "VRVBetaRewardsNotAvailable");
+    });
+
+    it("Должен проверить назначение и выдачу награды пользователю", async function () {
+      await vrvToken.addReward(addr1.address, 100000);
+
+      expect(await vrvToken.connect(addr1).hasReward())
+          .to.equal(100000);
+
+
+      expect(await vrvToken.connect(addr1).claimReward())
+        .to.changeTokenBalances(vrvToken, [addr1], [100000]);
+
+      expect(await vrvToken.connect(addr1).hasReward())
+          .to.equal(0);
+    });
+
+    it("Должен удалить награду", async function () {
+      await vrvToken.addReward(addr1.address, 100000);
+
+      expect(await vrvToken.connect(addr1).hasReward())
+          .to.equal(100000);
+
+      await vrvToken.removeReward(addr1.address);
+
+      expect(await vrvToken.connect(addr1).hasReward())
+          .to.equal(0);
+    });
   });
 
   describe("Transfers", function () {

@@ -9,7 +9,11 @@ npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/PrivateSale.ts --network localhost
 ```
 
-## Версии контрактов на 11.04.2024
+## Coverage
+
+![Coverage](./docs/coverage.png)
+
+## Версии контрактов на 23.04.2024
 
 ### VRV
 
@@ -20,7 +24,9 @@ npx hardhat ignition deploy ./ignition/modules/PrivateSale.ts --network localhos
 
 Основные тезисы:
 - Обычный `ERC20` контракт
-- Основное отличие в том, что владелец чеканить может только для другого кошелька. 
+- Основное отличие в том, что владелец чеканить может только для другого кошелька.
+- Возможность назначать награды пользователям. Которые они получают сами. Под капотом происходит чеканка. Ограничить 
+  по времени. Не востребованную награду можно удалить 
 
 
 ### PrivateSale
