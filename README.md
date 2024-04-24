@@ -36,6 +36,14 @@ npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localhost
 ```
 
+### Деплой на локальный контур оба контракта
+
+После запуска локальной ноды
+
+```shell
+npx hardhat ignition deploy ./ignition/modules/PrivateSale.ts --network localhost
+```
+
 ## Описание контрактов (23.04.2024)
 
 ### VRV
