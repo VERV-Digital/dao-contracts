@@ -80,6 +80,7 @@ contract PrivateSale is EIP712, Ownable {
         uint8 index;
         uint256 limit;
         uint256 bid;
+        uint256 bidToken;
         uint256 deposit;
         uint256 depositToken;
         uint depositCount;
@@ -107,8 +108,6 @@ contract PrivateSale is EIP712, Ownable {
 
     event SaleOpened();
     event SaleClosed();
-    event SaleReleased();
-    event SaleReverted();
 
     VRVBeta private _token;
 
@@ -189,7 +188,7 @@ contract PrivateSale is EIP712, Ownable {
 
         for (uint8 i = 0; i < _waveCount; i++) {
             _waves[i] = WaveInfo(
-                i, waveLimit, 0, 0, 0, 0, 0
+                i, waveLimit, 0, 0, 0, 0, 0, 0
             );
         }
 
@@ -216,7 +215,7 @@ contract PrivateSale is EIP712, Ownable {
                 afterWaveLimit += _waves[i].limit - _waves[i].deposit;
             }
 
-            _afterSaleWave = WaveInfo(_waveCount, afterWaveLimit, 0, 0, 0, 0, 0);
+            _afterSaleWave = WaveInfo(_waveCount, afterWaveLimit, 0, 0, 0, 0, 0, 0);
 
             closeAt = _closeAt;
             _registeredAfterSaleWave = true;
@@ -278,6 +277,7 @@ contract PrivateSale is EIP712, Ownable {
 
         _bidSum += request.requestValue;
 
+        _waves[request.wave].bidToken += request.tokenAmount;
         _waves[request.wave].bid += request.requestValue;
         _waves[request.wave].bidCount++;
 

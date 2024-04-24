@@ -162,7 +162,7 @@ describe("Private sell smart contract", function () {
     async function bet(wave: number = 0, address: SignerWithAddress = addr1) {
         const {bid, data} = await rawBid(owner, wave, address);
 
-        await time.setNextBlockTimestamp(currentTime + 25);
+        await time.setNextBlockTimestamp(currentTime + 35);
 
         const tx = address.sendTransaction({
             to: sellAddress,
@@ -177,12 +177,12 @@ describe("Private sell smart contract", function () {
             bid.cost,
             bid.requestValue,
             bid.wave,
-            currentTime + 25
+            currentTime + 35
         ]);
 
         await expect(tx).to.changeEtherBalance(address, -bid.requestValue);
 
-        currentTime = currentTime + 25;
+        currentTime = currentTime + 35;
     }
 
     async function rawDeposit(
@@ -226,7 +226,7 @@ describe("Private sell smart contract", function () {
             address
         );
 
-        await time.setNextBlockTimestamp(currentTime + 45);
+        await time.setNextBlockTimestamp(currentTime + 55);
 
         const tx = address.sendTransaction({
             to: sellAddress,
@@ -241,7 +241,7 @@ describe("Private sell smart contract", function () {
             dep.cost,
             dep.requestValue,
             dep.wave,
-            currentTime + 45,
+            currentTime + 55,
             dep.notBid,
             0
         ]);
@@ -250,7 +250,7 @@ describe("Private sell smart contract", function () {
         await expect(tx).to.changeTokenBalance(vrvToken, address, dep.tokenAmount);
         await expect(tx).to.changeTokenBalance(vrvToken, sellAddress, -dep.tokenAmount);
 
-        currentTime = currentTime + 45;
+        currentTime = currentTime + 55;
     }
 
     async function getWaveInfo(wave: number) {
@@ -303,13 +303,14 @@ describe("Private sell smart contract", function () {
             for (let i = 0; i < 10; i++) {
                 let waveInfo = await getWaveInfo(i);
 
-                expect(waveInfo[0]).to.equal(i);
-                expect(waveInfo[1]).to.equal(WAVE_INIT_DEFAULT);
-                expect(waveInfo[2]).to.equal(0);
-                expect(waveInfo[3]).to.equal(0);
-                expect(waveInfo[4]).to.equal(0);
-                expect(waveInfo[5]).to.equal(0);
-                expect(waveInfo[6]).to.equal(0);
+                expect(waveInfo.index).to.equal(i);
+                expect(waveInfo.limit).to.equal(WAVE_INIT_DEFAULT);
+                expect(waveInfo.bid).to.equal(0);
+                expect(waveInfo.bidToken).to.equal(0);
+                expect(waveInfo.deposit).to.equal(0);
+                expect(waveInfo.depositToken).to.equal(0);
+                expect(waveInfo.depositCount).to.equal(0);
+                expect(waveInfo.bidCount).to.equal(0);
             }
         });
 
@@ -333,7 +334,7 @@ describe("Private sell smart contract", function () {
         it("Должен произойти сбой в создании ставки по причине не открытой продажи", async function () {
             const {bid, data} = await rawBid(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 25);
+            await time.setNextBlockTimestamp(currentTime + 35);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -361,7 +362,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {bid, data} = await rawBid(addr1);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -375,7 +376,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {bid, data} = await rawBid(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr2.sendTransaction({
                 to: sellAddress,
@@ -389,7 +390,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {bid, data} = await rawBid(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -403,7 +404,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {bid, data} = await rawBid(owner, 10);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -419,7 +420,7 @@ describe("Private sell smart contract", function () {
 
             const {bid, data} = await rawBid(owner, 0);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -439,9 +440,10 @@ describe("Private sell smart contract", function () {
 
             const waveInfo = await getWaveInfo(0);
 
-            expect(waveInfo[0]).to.equal(0);
-            expect(waveInfo[2]).to.equal(bid.requestValue);
-            expect(waveInfo[6]).to.equal(1);
+            expect(waveInfo.index).to.equal(0);
+            expect(waveInfo.bid).to.equal(bid.requestValue);
+            expect(waveInfo.bidToken).to.equal(bid.tokenAmount);
+            expect(waveInfo.bidCount).to.equal(1);
 
             await balance(bid.requestValue);
         });
@@ -449,7 +451,7 @@ describe("Private sell smart contract", function () {
         it("Должен получить ставку", async function () {
             await transferVRV();
             await openSale();
-            const sendTime = currentTime + 25;
+            const sendTime = currentTime + 35;
             await bet(0);
 
             const {bid} = await rawBid(owner, 0);
@@ -458,13 +460,13 @@ describe("Private sell smart contract", function () {
 
             const bidInContract = await sellToken.getBid(addr1.address, 0);
 
-            expect(bidInContract[0]).to.equal(addr1.address);
-            expect(bidInContract[1]).to.equal(bid.tokenAmount);
-            expect(bidInContract[2]).to.equal(bid.amount);
-            expect(bidInContract[3]).to.equal(bid.cost);
-            expect(bidInContract[4]).to.equal(bid.requestValue);
-            expect(bidInContract[5]).to.equal(bid.wave);
-            expect(bidInContract[6]).to.equal(sendTime);
+            expect(bidInContract.to).to.equal(addr1.address);
+            expect(bidInContract.tokenAmount).to.equal(bid.tokenAmount);
+            expect(bidInContract.amount).to.equal(bid.amount);
+            expect(bidInContract.cost).to.equal(bid.cost);
+            expect(bidInContract.requestValue).to.equal(bid.requestValue);
+            expect(bidInContract.wave).to.equal(bid.wave);
+            expect(bidInContract.createdAt).to.equal(sendTime);
         });
     });
 
@@ -473,7 +475,7 @@ describe("Private sell smart contract", function () {
         it("Должен произойти сбой в создании депозита по причине не открытой продажи", async function () {
             const {dep, data} = await rawDeposit(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 25);
+            await time.setNextBlockTimestamp(currentTime + 35);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -485,7 +487,7 @@ describe("Private sell smart contract", function () {
         it("Должен произойти сбой в создании депозита по причине закрытия продаж", async function () {
             const {dep, data} = await rawDeposit(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 45);
+            await time.setNextBlockTimestamp(currentTime + 55);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -513,7 +515,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(addr1);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -527,7 +529,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr2.sendTransaction({
                 to: sellAddress,
@@ -541,7 +543,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(owner);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -555,7 +557,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(owner, 10);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -569,9 +571,9 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(owner, 11);
 
-            await sellToken.registerAfterWave(currentTime + 25000000);
+            await sellToken.registerAfterWave(currentTime + 35000000);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -585,7 +587,7 @@ describe("Private sell smart contract", function () {
             await openSale();
             const {dep, data} = await rawDeposit(owner, 0, VERV_INIT_DEFAULT);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -600,7 +602,7 @@ describe("Private sell smart contract", function () {
 
             const {dep, data} = await rawDeposit(owner, 0);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -616,7 +618,7 @@ describe("Private sell smart contract", function () {
 
             const {dep, data} = await rawDeposit(owner, 0, 1000000000000000000001n);
 
-            await time.setNextBlockTimestamp(currentTime + 250);
+            await time.setNextBlockTimestamp(currentTime + 350);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -653,7 +655,7 @@ describe("Private sell smart contract", function () {
                 HARD_DEFAULT
             );
 
-            await time.setNextBlockTimestamp(currentTime + 45);
+            await time.setNextBlockTimestamp(currentTime + 55);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -666,7 +668,7 @@ describe("Private sell smart contract", function () {
                 dep.cost,
                 dep.requestValue,
                 dep.wave,
-                currentTime + 45,
+                currentTime + 55,
                 dep.notBid,
                 0
             ]).emit(sellToken, "SaleClosed");
@@ -674,7 +676,7 @@ describe("Private sell smart contract", function () {
             await depositSum(dep.amount);
             await balance(bid.requestValue + dep.requestValue);
 
-            currentTime = currentTime + 45;
+            currentTime = currentTime + 55;
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -697,11 +699,11 @@ describe("Private sell smart contract", function () {
 
             const waveInfo = await getWaveInfo(0);
 
-            expect(waveInfo[0]).to.equal(0);
-            expect(waveInfo[1]).to.equal(WAVE_INIT_DEFAULT - dep.tokenAmount);
-            expect(waveInfo[3]).to.equal(dep.amount);
-            expect(waveInfo[4]).to.equal(dep.tokenAmount);
-            expect(waveInfo[5]).to.equal(1);
+            expect(waveInfo.index).to.equal(0);
+            expect(waveInfo.limit).to.equal(WAVE_INIT_DEFAULT - dep.tokenAmount);
+            expect(waveInfo.deposit).to.equal(dep.amount);
+            expect(waveInfo.depositToken).to.equal(dep.tokenAmount);
+            expect(waveInfo.depositCount).to.equal(1);
 
             await balance(bid.requestValue + dep.requestValue);
         });
@@ -718,7 +720,7 @@ describe("Private sell smart contract", function () {
                 HARD_DEFAULT
             );
 
-            await time.setNextBlockTimestamp(currentTime + 45);
+            await time.setNextBlockTimestamp(currentTime + 55);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -731,7 +733,7 @@ describe("Private sell smart contract", function () {
                 dep.cost,
                 dep.requestValue,
                 dep.wave,
-                currentTime + 45,
+                currentTime + 55,
                 dep.notBid,
                 0
             ]).emit(sellToken, "SaleClosed");
@@ -739,7 +741,7 @@ describe("Private sell smart contract", function () {
             await depositSum(dep.amount);
             await balance(bid.requestValue + dep.requestValue);
 
-            currentTime = currentTime + 45;
+            currentTime = currentTime + 55;
         });
 
         it("Должен создать депозит без ставки (выкуп больше 75%)", async function () {
@@ -756,11 +758,11 @@ describe("Private sell smart contract", function () {
 
             const waveInfo = await getWaveInfo(0);
 
-            expect(waveInfo[0]).to.equal(0);
-            expect(waveInfo[1]).to.equal(WAVE_INIT_DEFAULT - dep.tokenAmount);
-            expect(waveInfo[3]).to.equal(dep.amount);
-            expect(waveInfo[4]).to.equal(dep.tokenAmount);
-            expect(waveInfo[5]).to.equal(1);
+            expect(waveInfo.index).to.equal(0);
+            expect(waveInfo.limit).to.equal(WAVE_INIT_DEFAULT - dep.tokenAmount);
+            expect(waveInfo.deposit).to.equal(dep.amount);
+            expect(waveInfo.depositToken).to.equal(dep.tokenAmount);
+            expect(waveInfo.depositCount).to.equal(1);
 
             await balance(bid.requestValue + dep.requestValue);
         });
@@ -769,7 +771,7 @@ describe("Private sell smart contract", function () {
             await transferVRV();
             await openSale();
             await bet(0);
-            const sendTime = currentTime + 45;
+            const sendTime = currentTime + 55;
             await deposit(0);
 
             const {dep} = await rawDeposit(owner, 0);
@@ -780,15 +782,15 @@ describe("Private sell smart contract", function () {
 
             const depositInContract = await sellToken.getDeposit(oneDepIndex);
 
-            expect(depositInContract[0]).to.equal(addr1.address);
-            expect(depositInContract[1]).to.equal(dep.tokenAmount);
-            expect(depositInContract[2]).to.equal(dep.amount);
-            expect(depositInContract[3]).to.equal(dep.cost);
-            expect(depositInContract[4]).to.equal(dep.requestValue);
-            expect(depositInContract[5]).to.equal(dep.wave);
-            expect(depositInContract[6]).to.equal(sendTime);
-            expect(depositInContract[7]).to.equal(dep.notBid);
-            expect(depositInContract[8]).to.equal(0);
+            expect(depositInContract.to).to.equal(addr1.address);
+            expect(depositInContract.tokenAmount).to.equal(dep.tokenAmount);
+            expect(depositInContract.amount).to.equal(dep.amount);
+            expect(depositInContract.cost).to.equal(dep.cost);
+            expect(depositInContract.requestValue).to.equal(dep.requestValue);
+            expect(depositInContract.wave).to.equal(dep.wave);
+            expect(depositInContract.createdAt).to.equal(sendTime);
+            expect(depositInContract.notBid).to.equal(dep.notBid);
+            expect(depositInContract.withdrawal).to.equal(0);
         });
     });
 
@@ -842,23 +844,25 @@ describe("Private sell smart contract", function () {
 
             let waveInfo = await getWaveInfo(10);
 
-            expect(waveInfo[0]).to.equal(10);
-            expect(waveInfo[1]).to.equal(VERV_INIT_DEFAULT);
-            expect(waveInfo[2]).to.equal(0);
-            expect(waveInfo[3]).to.equal(0);
-            expect(waveInfo[4]).to.equal(0);
-            expect(waveInfo[5]).to.equal(0);
-            expect(waveInfo[6]).to.equal(0);
+            expect(waveInfo.index).to.equal(10);
+            expect(waveInfo.limit).to.equal(VERV_INIT_DEFAULT);
+            expect(waveInfo.bid).to.equal(0);
+            expect(waveInfo.bidToken).to.equal(0);
+            expect(waveInfo.deposit).to.equal(0);
+            expect(waveInfo.depositToken).to.equal(0);
+            expect(waveInfo.depositCount).to.equal(0);
+            expect(waveInfo.bidCount).to.equal(0);
 
             waveInfo = await sellToken.getAfterSaleWave();
 
-            expect(waveInfo[0]).to.equal(10);
-            expect(waveInfo[1]).to.equal(VERV_INIT_DEFAULT);
-            expect(waveInfo[2]).to.equal(0);
-            expect(waveInfo[3]).to.equal(0);
-            expect(waveInfo[4]).to.equal(0);
-            expect(waveInfo[5]).to.equal(0);
-            expect(waveInfo[6]).to.equal(0);
+            expect(waveInfo.index).to.equal(10);
+            expect(waveInfo.limit).to.equal(VERV_INIT_DEFAULT);
+            expect(waveInfo.bid).to.equal(0);
+            expect(waveInfo.bidToken).to.equal(0);
+            expect(waveInfo.deposit).to.equal(0);
+            expect(waveInfo.depositToken).to.equal(0);
+            expect(waveInfo.depositCount).to.equal(0);
+            expect(waveInfo.bidCount).to.equal(0);
         });
 
         it("Должен произойти сбой в создании депозита в режиме AfterWave по причине не верной волны", async function () {
@@ -868,7 +872,7 @@ describe("Private sell smart contract", function () {
 
             const {dep, data} = await rawDeposit(owner, 11);
 
-            await time.setNextBlockTimestamp(currentTime + 45);
+            await time.setNextBlockTimestamp(currentTime + 55);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -885,7 +889,7 @@ describe("Private sell smart contract", function () {
 
             const {dep, data} = await rawDeposit(owner, 10, VERV_INIT_DEFAULT);
 
-            await time.setNextBlockTimestamp(currentTime + 45);
+            await time.setNextBlockTimestamp(currentTime + 55);
 
             await expect(addr1.sendTransaction({
                 to: sellAddress,
@@ -907,11 +911,11 @@ describe("Private sell smart contract", function () {
 
             const waveInfo = await sellToken.getAfterSaleWave();
 
-            expect(waveInfo[0]).to.equal(10);
-            expect(waveInfo[1]).to.equal(VERV_INIT_DEFAULT - dep.tokenAmount);
-            expect(waveInfo[3]).to.equal(dep.amount);
-            expect(waveInfo[4]).to.equal(dep.tokenAmount);
-            expect(waveInfo[5]).to.equal(1);
+            expect(waveInfo.index).to.equal(10);
+            expect(waveInfo.limit).to.equal(VERV_INIT_DEFAULT - dep.tokenAmount);
+            expect(waveInfo.deposit).to.equal(dep.amount);
+            expect(waveInfo.depositToken).to.equal(dep.tokenAmount);
+            expect(waveInfo.depositCount).to.equal(1);
 
             await balance(dep.requestValue);
         });
@@ -922,7 +926,7 @@ describe("Private sell smart contract", function () {
             await transferVRV();
             await openSale();
 
-            const sendTimeBid = currentTime + 25;
+            const sendTimeBid = currentTime + 35;
             await bet(0);
 
             let logs = await sellToken.getLogs();
@@ -938,7 +942,7 @@ describe("Private sell smart contract", function () {
             expect(bidLog.wave).to.equal(bid.wave);
             expect(bidLog.createdAt).to.equal(sendTimeBid);
 
-            const sendTimeDep = currentTime + 45;
+            const sendTimeDep = currentTime + 55;
             await deposit(0);
 
             logs = await sellToken.getLogs();
@@ -955,7 +959,7 @@ describe("Private sell smart contract", function () {
             expect(depLog.wave).to.equal(dep.wave);
             expect(depLog.createdAt).to.equal(sendTimeDep);
 
-            const sendTimeBigDep = currentTime + 45;
+            const sendTimeBigDep = currentTime + 55;
             await deposit(0, true);
 
             logs = await sellToken.getLogs();

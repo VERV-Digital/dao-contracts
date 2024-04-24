@@ -47,7 +47,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
 
 Основные тезисы:
 - Обычный `ERC20` контракт
-- Основное отличие в том, что владелец чеканить может только для другого кошелька.
+- Основное отличие в том, что владелец может чеканить может только для другого кошелька.
 - Возможность назначать награды пользователям. Которые они получают сами. Под капотом происходит чеканка. Ограничить 
   по времени. Не востребованную награду можно удалить 
 
@@ -65,7 +65,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
 - Каждый депозит подписывается владельцем контракта
 - 10 волн для ставок/депозитов
 - Устанавливается лимит по количеству токенов на каждую из волн. Остаток не перетекает на следующую
-- Есть Режим продажи после всех волн. куда все оставшиеся лимиты сливаются
+- Есть режим продажи после всех волн. Куда все оставшиеся лимиты сливаются
 - Перед депозитом нужно сделать ставку
 - Можно отправить депозит минуя ставку
 - Есть несколько условий прекращения приема депозитов.
@@ -76,7 +76,6 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
 - Добавляем метод, который возвращает всем если не набрали softCap или переводит все на указанный адрес в случае 
   набора softCap
 - Деньги за ставки не возвращаем
-
 
 ## Взаимодействие с контрактами
 
@@ -120,3 +119,137 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   function claimReward() external;
 ```
  
+### Private Sell
+
+Контракт соблюдает [EIP712](https://docs.openzeppelin.com/contracts/5.x/api/utils#EIP712)
+
+```solidity
+  string private constant SIGNING_DOMAIN = "VERVPRIVATESALE";
+  string private constant SIGNATURE_VERSION = "1";
+```
+
+### Ошибки
+
+```solidity
+  error PrivateSaleOpened(); // Продажа открыта
+  error PrivateSaleClosed(); // Продажа закрыта
+  error PrivateSaleDepositBidNotFound(); // Ставка не найдена
+  error PrivateSaleDepositBidExist(); // Ставка уже существует
+  error PrivateSaleDepositExpired(); // Время на выполнение транзакции депозита истекло
+  error PrivateSaleDepositFailedTokenAmount(); // Количество токенов в депозите превышает заявленное в ставке
+  error PrivateSaleFailedWaveIndex(); // Не верный индекс волны
+  error PrivateSaleFailedSender(); // Не верный отправитель транзакции
+  error PrivateSaleFailedSignature(address signer); // Транзакцию подписал не владелец контракта
+  error PrivateSaleWaveLimitExceeded(uint256 limit); // Не достаточно лимита токенов в волне
+  error PrivateSaleInsufficientBalance(); // Отправлено не достаточное количество ETH
+  error PrivateSaleAfterWaveNotRegistered(); // Режим AfterWave не включен
+  error PrivateSaleAfterWaveRegistered(); // Режим AfterWave уже включен
+```
+
+### Структуры
+
+```solidity
+
+  struct Deposit {
+    address payable to; // Адрес пользователя
+    uint256 tokenAmount; // Сколько он хочет выкупить токенов  (wei)
+    uint256 amount; // Сколько он потратит eth (tokenAmount * cost)  (wei)
+    uint256 cost; // Сколько он готов предложить за 1 VRV (wei)
+    uint256 requestValue; // Сколько он отправляет при создании депозита (amount * 0,9) (wei)
+    uint8 wave; // Индекс волны (0-9) (10 в случае afterWave)
+    uint256 createdAt; // Время создания депозита
+    bool notBid; // Флаг большого депозита, когда нужно выкупить без ставки
+    uint256 withdrawal; // Сумма возврата в случае не набранного softCap
+  }
+
+  struct DepositRequest {
+    address to; // Адрес пользователя
+    uint256 tokenAmount; // Сколько он хочет выкупить токенов  (wei)
+    uint256 amount; // Сколько он потратит eth (tokenAmount * cost)  (wei)
+    uint256 cost; // Сколько он готов предложить за 1 VRV (wei)
+    uint256 requestValue; // Сколько он отправляет при создании депозита (amount * 0,9) (wei)
+    uint8 wave; // Индекс волны (0-9) (10 в случае afterWave)
+    uint256 expireTo; // Время после которого депозит не будет принят
+    bool notBid; // Флаг большого депозита, когда нужно выкупить без ставки
+    bytes signature; // Подпись владельца контракта
+  }
+
+  struct Bid {
+    address to; // Адрес пользователя
+    uint256 tokenAmount; // Сколько он хочет выкупить токенов  (wei)
+    uint256 amount; // Сколько он потратит eth (tokenAmount * cost)  (wei)
+    uint256 cost; // Сколько он готов предложить за 1 VRV (wei)
+    uint256 requestValue; // Сколько он отправляет при создании ставки (amount * 0,1) (wei)
+    uint8 wave; // Индекс волны (0-9)
+    uint256 createdAt; // Время создания ставки
+  }
+
+  struct BidRequest {
+    address to; // Адрес пользователя
+    uint256 tokenAmount; // Сколько он хочет выкупить токенов  (wei)
+    uint256 amount; // Сколько он потратит eth (tokenAmount * cost)  (wei)
+    uint256 cost; // Сколько он готов предложить за 1 VRV (wei)
+    uint256 requestValue; // Сколько он отправляет при создании ставки (amount * 0,1) (wei)
+    uint8 wave; // Индекс волны (0-9)
+    bytes signature; // Подпись владельца контракта
+  }
+
+  struct WaveInfo {
+    uint8 index; // Индекс волны
+    uint256 limit; // Оставшийся лимит токенов в волне, сколько не выкупленных (задепозиченных)
+    uint256 bid; // Сумма EHT потраченных на ставки
+    uint256 bidToken; // Сумма токенов на которые сделаны ставки
+    uint256 deposit; // Сумма ETH потраченных на депозиты (без ставок)
+    uint256 depositToken; // Сумма токенов на которые сделаны депозиты
+    uint depositCount; // Количество депозитов
+    uint bidCount; // Количество ставок
+  }
+
+  enum LogAction {
+    Bid,  // 0 - Ставка
+    Deposit, // 1 - Депозит, noBid = false
+    BigDeposit // 2 - Депозит, noBid = true
+  }
+
+  struct Log {
+    address to; // Кто сделал
+    LogAction action; // Какое действие
+    uint256 amount; // Сколько в ETH
+    uint256 tokenAmount; // Сколько токенов VRV
+    uint256 cost; // Какой курс
+    uint8 wave; // Индекс волны
+    uint256 createdAt; // Дата
+  }
+```
+
+### События
+
+```solidity
+  event Bet(address indexed from, Bid _value); // События успешно созданной ставки
+  event Deposited(address indexed from, Deposit _value); // Событие успешно созданного депозита
+
+  event SaleOpened(); // Событие после открытия продаж
+  event SaleClosed(); // Событие после закрытия продаж
+```
+
+#### Deploy
+
+```solidity
+  // Адрес VRV токена
+  constructor(address vrvToken)
+```
+
+### Публичные поля
+
+```solidity
+  bool public opened; // Флаг открытия продаж (после инициализации всегда true)
+  bool public closed; // Флаг закрытия продаж
+  uint256 public closeAt; // Время автоматического закрытия продаж
+```
+
+#### Deploy
+
+```solidity
+  // Адрес VRV токена
+  constructor(address vrvToken)
+```
