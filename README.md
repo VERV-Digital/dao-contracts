@@ -128,7 +128,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   string private constant SIGNATURE_VERSION = "1";
 ```
 
-### Ошибки
+#### Ошибки
 
 ```solidity
   error PrivateSaleOpened(); // Продажа открыта
@@ -146,7 +146,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   error PrivateSaleAfterWaveRegistered(); // Режим AfterWave уже включен
 ```
 
-### Структуры
+#### Структуры
 
 ```solidity
 
@@ -222,7 +222,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   }
 ```
 
-### События
+#### События
 
 ```solidity
   event Bet(address indexed from, Bid _value); // События успешно созданной ставки
@@ -232,14 +232,7 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   event SaleClosed(); // Событие после закрытия продаж
 ```
 
-#### Deploy
-
-```solidity
-  // Адрес VRV токена
-  constructor(address vrvToken)
-```
-
-### Публичные поля
+#### Публичные поля
 
 ```solidity
   bool public opened; // Флаг открытия продаж (после инициализации всегда true)
@@ -253,3 +246,144 @@ npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts --network localho
   // Адрес VRV токена
   constructor(address vrvToken)
 ```
+
+#### Открытие продаж
+
+Пред началом продажи необходимо на баланс контракта Private Sale перечислить VRV токены в необходимом количестве. При деплое через команду это происходит автоматически
+
+```ts
+vrvToken.transfer(privateSaleContractAddress, 7_500_000_000_000_000_000_000_000n);
+```
+
+Пред началом продажи необходимо сконфигурировать контракт тем самым разрешив депозиты. При деплое через команду это происходит автоматически
+
+```solidity
+
+  function openSale(
+    uint256 softCap, // по умолчанию 15_000_000_000_000_000_000n
+    uint256 hardCap, // по умолчанию 40_000_000_000_000_000_000n
+    uint8 waveCount, // по умолчанию 10
+    uint256 waveLimit, // по умолчанию 750_000_000_000_000_000_000_000n
+    uint _closeAt // Определится позже
+  ) external onlyOwner;
+```
+
+#### Ставка
+
+Чтобы совершить ставку, необходимо на бекенде подготовить данные которые затем можно добавить в транзакцию 
+пользователя и вызвать отправку этой транзакции.
+
+```ts
+import { ethers } from "hardhat";
+import {EIP712Domain, EIP712TypeDefinition} from "../helpers/EIP712.types";
+
+const types:  EIP712TypeDefinition = {
+  BidRequest: [
+    {name: "to", type: "address"},
+    {name: "tokenAmount", type: "uint256"},
+    {name: "amount", type: "uint256"},
+    {name: "cost", type: "uint256"},
+    {name: "requestValue", type: "uint256"},
+    {name: "wave", type: "uint8"},
+  ]
+};
+
+const domain: EIP712Domain =  {
+  name: "VERVPRIVATESALE",
+  version: "1",
+  chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number, // ChainId лучше уточнить у Элькина в какой сети это будет расскатано 
+  verifyingContract: privateSaleContractAddress, // Адрес контракта приватной продажи
+}
+
+const bid = {
+  to: address.address, // Адресс пользователя
+  tokenAmount: 1000000000000000000000n, // Количество токенов VRV. (1000 токенов Ether)
+  amount: 7178957041000000n, // Количество Eth. (0,007178957041 токенов Ether)
+  cost: 7178957041000n, // Курс за один VRV (Ether) (0,000007178957041)
+  requestValue: 717895704100000n, // 0.1 от amount
+  wave: wave // Индекс волны
+};
+
+// Генерация подписи 
+// owner - SignerWithAddress пользователь от имени которого расскатан контракт
+const signature = await signTypedData(domain, types, bid, owner);
+
+// privateSaleFactory - Фабрика в текущем примере из hardhad но можно и через ether вывать через
+// new ethers.Contract(address, abi, owner);
+const data = privateSaleFactory.interface.encodeFunctionData("bid", [{...bid, signature}]);
+
+// Данные готовы. Можно передавать на фронт для отправки пользователем
+await addr1.sendTransaction({
+  from: addr1.address,
+  to: privateSaleContractAddress,
+  data: data,
+  value: bid.requestValue
+})
+```
+
+#### Депозит
+
+Чтобы совершить ставку, необходимо на бекенде подготовить данные которые затем можно добавить в транзакцию 
+пользователя и вызвать отправку этой транзакции.
+
+```ts
+import { ethers } from "hardhat";
+import {EIP712Domain, EIP712TypeDefinition} from "../helpers/EIP712.types";
+
+const types: EIP712TypeDefinition = {
+  DepositRequest: [
+    {name: "to", type: "address"},
+    {name: "tokenAmount", type: "uint256"},
+    {name: "amount", type: "uint256"},
+    {name: "cost", type: "uint256"},
+    {name: "requestValue", type: "uint256"},
+    {name: "wave", type: "uint8"},
+    {name: "expireTo", type: "uint256"},
+    {name: "notBid", type: "bool"}
+  ]
+};
+
+const domain: EIP712Domain =  {
+  name: "VERVPRIVATESALE",
+  version: "1",
+  chainId: await ethers.provider.getNetwork().then(({ chainId }) => chainId) as number, // ChainId лучше уточнить у Элькина в какой сети это будет расскатано 
+  verifyingContract: privateSaleContractAddress, // Адрес контракта приватной продажи
+}
+
+const dep = {
+  to: address.address, // Адресс пользователя
+  tokenAmount: 1000000000000000000000n, // Количество токенов VRV. (1000 токенов Ether)
+  amount: 7178957041000000n, // Количество Eth. (0,007178957041 токенов Ether)
+  cost: 7178957041000n, // Курс за один VRV (Ether) (0,000007178957041)
+  requestValue: 6461061336900000, // 0.9 от amount
+  wave: wave, // Индекс волны (для afterWave - 10)
+  expireTo: currentTime + 3600, // Время после которого депозит не будет принят
+  notBid: notBid // Флаг большого депозита, когда нужно выкупить без ставки (для больших ставок true)
+};
+
+// Генерация подписи 
+// owner - SignerWithAddress пользователь от имени которого расскатан контракт
+const signature = await signTypedData(domain, types, dep, owner);
+
+// privateSaleFactory - Фабрика в текущем примере из hardhad но можно и через ether вывать через
+// new ethers.Contract(address, abi, owner);
+const data = privateSaleFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
+
+// Данные готовы. Можно передавать на фронт для отправки пользователем
+await addr1.sendTransaction({
+  from: addr1.address,
+  to: privateSaleContractAddress,
+  data: data,
+  value: dep.requestValue
+})
+```
+
+
+#### Информация о волне
+
+```solidity
+
+  function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory);
+```
+
+TODO: Другие методы можно посмотреть в контракте
