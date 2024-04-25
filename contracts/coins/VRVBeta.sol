@@ -18,6 +18,8 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
      */
     error VRVBetaRewardsNotAvailable();
 
+    error VRVBetaRewardsSelf();
+
     uint public rewardsCloseAfter;
 
     mapping (address => uint256) private _rewards;
@@ -33,6 +35,10 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
 
     function addReward(address wallet, uint256 amount) external onlyOwner {
         _finishReward();
+
+        if (wallet == _msgSender() || to == address(this)) {
+            revert VRVBetaRewardsSelf();
+        }
 
         _rewards[wallet] += amount;
     }
@@ -62,7 +68,7 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
-        if (to == _msgSender()) {
+        if (to == _msgSender() || to == address(this)) {
             revert VRVBetaInvalidSelfMinter();
         }
         _mint(to, amount);
