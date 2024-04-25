@@ -92,6 +92,7 @@ contract PrivateSale is EIP712, Ownable2Step {
 
     event Bet(address indexed from, Bid _value);
     event Deposited(address indexed from, Deposit _value);
+    event SuccessTransfer(bool success, bytes data);
 
     event SaleOpened();
     event SaleClosed();
@@ -206,7 +207,7 @@ contract PrivateSale is EIP712, Ownable2Step {
             revert PrivateSaleFailedWaveIndex();
         }
 
-        if (this.getBid(request.to, request.wave).to != NULL_ADDRESS) {
+        if (getBid(request.to, request.wave).to != NULL_ADDRESS) {
             revert PrivateSaleDepositBidExist();
         }
 
@@ -329,10 +330,12 @@ contract PrivateSale is EIP712, Ownable2Step {
     function finish(address payable transferTo) external onlyOwner {
         _calculateCap();
 
-        if (closed && _successful) {
-            _transfer(transferTo);
-        } else if (closed && !_successful) {
-            _revertDeposits(transferTo);
+        if (closed) {
+            if (_successful) {
+                _transfer(transferTo);
+            } else {
+                _revertDeposits(transferTo);
+            }
         } else {
             revert PrivateSaleOpened();
         }
@@ -438,11 +441,15 @@ contract PrivateSale is EIP712, Ownable2Step {
     function _calculateCap() private {
         if (opened) {
             if (_depositSum < _softCap) {
-                _successful = false;
+                if (_successful) {
+                    _successful = false;
+                }
             }
 
             if (_depositSum >= _softCap) {
-                _successful = true;
+                if (!_successful) {
+                    _successful = true;
+                }
             }
 
             if (_depositSum >= _hardCap || block.timestamp >= closeAt) {
@@ -457,9 +464,8 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
         if (0 != getBalance()) {
             (bool success, bytes memory data) = transferTo.call{value: getBalance()}("");
-            if (!success) {
-                revert();
-            }
+
+            emit SuccessTransfer(success, data);
         }
     }
 
@@ -467,10 +473,12 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 _fee = block.gaslimit / _depositIndex;
         for (uint256 i; i < _depositIndex;) {
             Deposit storage dep = _deposits[i];
-            if (0 == dep.withdrawal && 0 != (dep.requestValue - _fee)) {
-                dep.to.transfer(dep.requestValue - _fee);
-                dep.withdrawal = dep.requestValue;
-                _deposits[i] = dep;
+            if (0 == dep.withdrawal) {
+                if (0 != (dep.requestValue - _fee)) {
+                    dep.to.transfer(dep.requestValue - _fee);
+                    dep.withdrawal = dep.requestValue;
+                    _deposits[i] = dep;
+                }
             }
 
             unchecked{ ++i; }
@@ -480,14 +488,18 @@ contract PrivateSale is EIP712, Ownable2Step {
     }
 
     function _open() private {
-        opened = true;
+        if (!opened) {
+            opened = true;
 
-        emit SaleOpened();
+            emit SaleOpened();
+        }
     }
 
     function _close() private {
-        closed = true;
+        if (!closed) {
+            closed = true;
 
-        emit SaleClosed();
+            emit SaleClosed();
+        }
     }
 }
