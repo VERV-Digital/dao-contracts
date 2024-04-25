@@ -9,6 +9,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {VRVBeta} from "./coins/VRVBeta.sol";
+import "hardhat/console.sol";
 
 contract PrivateSale is EIP712, Ownable2Step {
 
@@ -40,10 +41,10 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 amount;
         uint256 cost;
         uint256 requestValue;
-        uint8 wave;
-        uint256 createdAt;
-        bool notBid;
         uint256 withdrawal;
+        uint256 createdAt;
+        uint8 wave;
+        bool notBid;
     }
 
     struct DepositRequest {
@@ -52,10 +53,9 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 amount;
         uint256 cost;
         uint256 requestValue;
-        uint8 wave;
         uint256 expireTo;
+        uint8 wave;
         bool notBid;
-        bytes signature;
     }
 
     struct Bid {
@@ -64,8 +64,9 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 amount;
         uint256 cost;
         uint256 requestValue;
-        uint8 wave;
         uint256 createdAt;
+        uint32 price;
+        uint8 wave;
     }
 
     struct BidRequest {
@@ -74,35 +75,19 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 amount;
         uint256 cost;
         uint256 requestValue;
+        uint32 price;
         uint8 wave;
-        bytes signature;
     }
 
     struct WaveInfo {
-        uint8 index;
         uint256 limit;
         uint256 bid;
         uint256 bidToken;
         uint256 deposit;
         uint256 depositToken;
+        uint8 index;
         uint depositCount;
         uint bidCount;
-    }
-
-    enum LogAction {
-        Bid,
-        Deposit,
-        BigDeposit
-    }
-
-    struct Log {
-        address to;
-        LogAction action;
-        uint256 amount;
-        uint256 tokenAmount;
-        uint256 cost;
-        uint256 createdAt;
-        uint8 wave;
     }
 
     event Bet(address indexed from, Bid _value);
@@ -139,8 +124,6 @@ contract PrivateSale is EIP712, Ownable2Step {
     mapping(uint256 depositIndex => Deposit) private _deposits;
     mapping(address owner => uint256[]) private _depositOwners;
 
-    Log[] private _log;
-
     constructor(address vrvToken)
         EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION)
         Ownable(_msgSender())
@@ -168,10 +151,12 @@ contract PrivateSale is EIP712, Ownable2Step {
         _waveCount = waveCount;
         closeAt = _closeAt;
 
-        for (uint8 i; i < _waveCount; ++i) {
+        for (uint8 i; i < _waveCount;) {
             _waves[i] = WaveInfo(
-                i, waveLimit, 0, 0, 0, 0, 0, 0
+                waveLimit, 0, 0, 0, 0, i, 0, 0
             );
+
+            unchecked{ ++i; }
         }
 
         _open();
@@ -181,11 +166,13 @@ contract PrivateSale is EIP712, Ownable2Step {
         if (!_registeredAfterSaleWave) {
             uint256 afterWaveLimit;
 
-            for (uint8 i; i < _waveCount; ++i) {
+            for (uint8 i; i < _waveCount;) {
                 afterWaveLimit += _waves[i].limit - _waves[i].deposit;
+
+                unchecked{ i++; }
             }
 
-            _afterSaleWave = WaveInfo(_waveCount, afterWaveLimit, 0, 0, 0, 0, 0, 0);
+            _afterSaleWave = WaveInfo(afterWaveLimit, 0, 0, 0, 0, _waveCount, 0, 0);
 
             closeAt = _closeAt;
             _registeredAfterSaleWave = true;
@@ -194,18 +181,14 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function getLogs() external view returns(Log[] memory) {
-        return _log;
-    }
-
-    function bid(BidRequest calldata request) external payable {
+    function bid(BidRequest calldata request, bytes calldata signature) external payable {
         _calculateCap();
 
         if (closed || !opened) {
             revert PrivateSaleClosed();
         }
 
-        address signer = _getSignerBidRequest(request);
+        address signer = _getSignerBidRequest(request, signature);
 
         if (owner() != signer) {
             revert PrivateSaleFailedSignature(signer);
@@ -233,8 +216,9 @@ contract PrivateSale is EIP712, Ownable2Step {
             request.amount,
             request.cost,
             request.requestValue,
-            request.wave,
-            block.timestamp
+            block.timestamp,
+            request.price,
+            request.wave
         );
 
         _bidSum += request.requestValue;
@@ -244,26 +228,16 @@ contract PrivateSale is EIP712, Ownable2Step {
         _waves[request.wave].bidCount++;
 
         emit Bet(request.to, _bids[request.wave][request.to]);
-
-        _pushLog(Log(
-            request.to,
-            LogAction.Bid,
-            request.amount,
-            request.tokenAmount,
-            request.cost,
-            block.timestamp,
-            request.wave
-        ));
     }
 
-    function deposit(DepositRequest calldata request) external payable {
+    function deposit(DepositRequest calldata request, bytes calldata signature) external payable {
         _calculateCap();
 
         if (closed || !opened) {
             revert PrivateSaleClosed();
         }
 
-        address signer = _getSignerDepositRequest(request);
+        address signer = _getSignerDepositRequest(request, signature);
 
         if (owner() != signer) {
             revert PrivateSaleFailedSignature(signer);
@@ -317,10 +291,10 @@ contract PrivateSale is EIP712, Ownable2Step {
             request.amount,
             request.cost,
             request.requestValue,
-            request.wave,
+            0,
             block.timestamp,
-            request.notBid,
-            0
+            request.wave,
+            request.notBid
         );
 
         _deposits[_depositIndex] = dep;
@@ -348,21 +322,6 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
 
         emit Deposited(_msgSender(), dep);
-
-        LogAction action = LogAction.Deposit;
-        if (request.notBid) {
-            action = LogAction.BigDeposit;
-        }
-
-        _pushLog(Log(
-            request.to,
-            action,
-            request.amount,
-            request.tokenAmount,
-            request.cost,
-            block.timestamp,
-            request.wave
-        ));
 
         _calculateCap();
     }
@@ -431,46 +390,49 @@ contract PrivateSale is EIP712, Ownable2Step {
         return _token.balanceOf(address(this));
     }
 
-    function _pushLog(Log memory log) private {
-        _log.push(log);
-    }
-
-    function _getSignerBidRequest(BidRequest calldata request) private view returns (address) {
+    function _getSignerBidRequest(
+        BidRequest calldata request,
+        bytes calldata signature
+    ) private view returns (address) {
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    keccak256("BidRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint8 wave)"),
+                    keccak256("BidRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint32 price,uint8 wave)"),
                     request.to,
                     request.tokenAmount,
                     request.amount,
                     request.cost,
                     request.requestValue,
+                    request.price,
                     request.wave
                 )
             )
         );
 
-        return ECDSA.recover(digest, request.signature);
+        return ECDSA.recover(digest, signature);
     }
 
-    function _getSignerDepositRequest(DepositRequest calldata request) private view returns (address) {
+    function _getSignerDepositRequest(
+        DepositRequest calldata request,
+        bytes calldata signature
+    ) private view returns(address) {
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint8 wave,uint256 expireTo,bool notBid)"),
+                    keccak256("DepositRequest(address to,uint256 tokenAmount,uint256 amount,uint256 cost,uint256 requestValue,uint256 expireTo,uint8 wave,bool notBid)"),
                     request.to,
                     request.tokenAmount,
                     request.amount,
                     request.cost,
                     request.requestValue,
-                    request.wave,
                     request.expireTo,
+                    request.wave,
                     request.notBid
                 )
             )
         );
 
-        return ECDSA.recover(digest, request.signature);
+        return ECDSA.recover(digest, signature);
     }
 
     function _calculateCap() private {
@@ -503,13 +465,15 @@ contract PrivateSale is EIP712, Ownable2Step {
 
     function _revertDeposits(address payable transferTo) private {
         uint256 _fee = block.gaslimit / _depositIndex;
-        for (uint256 i; i < _depositIndex; ++i) {
+        for (uint256 i; i < _depositIndex;) {
             Deposit storage dep = _deposits[i];
             if (0 == dep.withdrawal && 0 != (dep.requestValue - _fee)) {
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
                 _deposits[i] = dep;
             }
+
+            unchecked{ ++i; }
         }
 
         _transfer(transferTo);

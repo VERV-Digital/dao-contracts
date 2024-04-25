@@ -24,6 +24,7 @@ describe("Private sell smart contract", function () {
             {name: "amount", type: "uint256"},
             {name: "cost", type: "uint256"},
             {name: "requestValue", type: "uint256"},
+            {name: "price", type: "uint32"},
             {name: "wave", type: "uint8"},
         ]
     };
@@ -35,8 +36,8 @@ describe("Private sell smart contract", function () {
             {name: "amount", type: "uint256"},
             {name: "cost", type: "uint256"},
             {name: "requestValue", type: "uint256"},
-            {name: "wave", type: "uint8"},
             {name: "expireTo", type: "uint256"},
+            {name: "wave", type: "uint8"},
             {name: "notBid", type: "bool"}
         ]
     };
@@ -148,13 +149,14 @@ describe("Private sell smart contract", function () {
             tokenAmount: 1000000000000000000000n,
             amount: 7178957041000000n,
             cost: 7178957041000n,
+            price: 240,
             requestValue: 717895704100000,
             wave: wave
         };
 
         const signature = await signTypedData(domain, bidTypes, bid, signer);
 
-        const data = sellFactory.interface.encodeFunctionData("bid", [{...bid, signature}]);
+        const data = sellFactory.interface.encodeFunctionData("bid", [{...bid}, signature]);
 
         return {bid, signature, data};
     }
@@ -176,8 +178,9 @@ describe("Private sell smart contract", function () {
             bid.amount,
             bid.cost,
             bid.requestValue,
-            bid.wave,
-            currentTime + 35
+            currentTime + 35,
+            bid.price,
+            bid.wave
         ]);
 
         await expect(tx).to.changeEtherBalance(address, -bid.requestValue);
@@ -199,14 +202,14 @@ describe("Private sell smart contract", function () {
             amount: amount,
             cost: 7178957041000n,
             requestValue: 6461061336900000,
-            wave: wave,
             expireTo: currentTime + 3600,
+            wave: wave,
             notBid: notBid
         };
 
         const signature = await signTypedData(domain, depositTypes, dep, signer);
 
-        const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep, signature}]);
+        const data = sellFactory.interface.encodeFunctionData("deposit", [{...dep}, signature]);
 
         return {dep, signature, data};
     }
@@ -240,10 +243,10 @@ describe("Private sell smart contract", function () {
             dep.amount,
             dep.cost,
             dep.requestValue,
-            dep.wave,
+            0,
             currentTime + 55,
-            dep.notBid,
-            0
+            dep.wave,
+            dep.notBid
         ]);
 
         await expect(tx).to.changeEtherBalance(address, -dep.requestValue);
@@ -667,10 +670,10 @@ describe("Private sell smart contract", function () {
                 dep.amount,
                 dep.cost,
                 dep.requestValue,
-                dep.wave,
+                0,
                 currentTime + 55,
+                dep.wave,
                 dep.notBid,
-                0
             ]).emit(sellToken, "SaleClosed");
 
             await depositSum(dep.amount);
@@ -732,10 +735,10 @@ describe("Private sell smart contract", function () {
                 dep.amount,
                 dep.cost,
                 dep.requestValue,
-                dep.wave,
+                0,
                 currentTime + 55,
-                dep.notBid,
-                0
+                dep.wave,
+                dep.notBid
             ]).emit(sellToken, "SaleClosed");
 
             await depositSum(dep.amount);
@@ -918,80 +921,6 @@ describe("Private sell smart contract", function () {
             expect(waveInfo.depositCount).to.equal(1);
 
             await balance(dep.requestValue);
-        });
-    });
-
-    describe("Log", function () {
-        it("Должен получить список логов", async function () {
-            await transferVRV();
-            await openSale();
-
-            const sendTimeBid = currentTime + 35;
-            await bet(0);
-
-            let logs = await sellToken.getLogs();
-
-            const {bid} = await rawBid(owner, 0);
-            const bidLog: PrivateSale.LogStructOutput = logs[logs.length - 1];
-
-            expect(bidLog.to).to.equal(bid.to)
-            expect(bidLog.action).to.equal(0); // LogAction.Bid = 0
-            expect(bidLog.amount).to.equal(bid.amount);
-            expect(bidLog.tokenAmount).to.equal(bid.tokenAmount);
-            expect(bidLog.cost).to.equal(bid.cost);
-            expect(bidLog.wave).to.equal(bid.wave);
-            expect(bidLog.createdAt).to.equal(sendTimeBid);
-
-            const sendTimeDep = currentTime + 55;
-            await deposit(0);
-
-            logs = await sellToken.getLogs();
-
-            const {dep} = await rawDeposit(owner, 0);
-
-            const depLog: PrivateSale.LogStructOutput = logs[logs.length - 1];
-
-            expect(depLog.to).to.equal(dep.to)
-            expect(depLog.action).to.equal(1); // LogAction.Deposit = 1
-            expect(depLog.amount).to.equal(dep.amount);
-            expect(depLog.tokenAmount).to.equal(dep.tokenAmount);
-            expect(depLog.cost).to.equal(dep.cost);
-            expect(depLog.wave).to.equal(dep.wave);
-            expect(depLog.createdAt).to.equal(sendTimeDep);
-
-            const sendTimeBigDep = currentTime + 55;
-            await deposit(0, true);
-
-            logs = await sellToken.getLogs();
-
-            const bigDepLog: PrivateSale.LogStructOutput = logs[logs.length - 1];
-
-            expect(bigDepLog.to).to.equal(dep.to)
-            expect(bigDepLog.action).to.equal(2); // LogAction.BigDeposit = 1
-            expect(bigDepLog.amount).to.equal(dep.amount);
-            expect(bigDepLog.tokenAmount).to.equal(dep.tokenAmount);
-            expect(bigDepLog.cost).to.equal(dep.cost);
-            expect(bigDepLog.wave).to.equal(dep.wave);
-            expect(bigDepLog.createdAt).to.equal(sendTimeBigDep);
-        });
-
-        it("Должен получить большой список логов", async function () {
-            await transferVRV();
-            await openSale();
-
-            let actual = 0;
-            for (let wave = 0; wave < 10; wave++) {
-                for (let i = 0; i < addrs.length; i++) {
-                    await bet(wave, addrs[i]);
-                    actual++;
-                    await deposit(wave, false, addrs[i]);
-                    actual++;
-                }
-            }
-
-            let logs = await sellToken.getLogs();
-
-            expect(logs.length).to.equal(actual);
         });
     });
 
