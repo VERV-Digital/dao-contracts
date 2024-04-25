@@ -101,8 +101,8 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 amount;
         uint256 tokenAmount;
         uint256 cost;
-        uint8 wave;
         uint256 createdAt;
+        uint8 wave;
     }
 
     event Bet(address indexed from, Bid _value);
@@ -251,8 +251,8 @@ contract PrivateSale is EIP712, Ownable2Step {
             request.amount,
             request.tokenAmount,
             request.cost,
-            request.wave,
-            block.timestamp
+            block.timestamp,
+            request.wave
         ));
     }
 
@@ -360,8 +360,8 @@ contract PrivateSale is EIP712, Ownable2Step {
             request.amount,
             request.tokenAmount,
             request.cost,
-            request.wave,
-            block.timestamp
+            block.timestamp,
+            request.wave
         ));
 
         _calculateCap();
@@ -494,14 +494,17 @@ contract PrivateSale is EIP712, Ownable2Step {
             _token.transfer(transferTo, getTokenBalance());
         }
         if (0 != getBalance()) {
-            transferTo.call{value: getBalance()}("");
+            (bool success, bytes memory data) = transferTo.call{value: getBalance()}("");
+            if (!success) {
+                revert();
+            }
         }
     }
 
     function _revertDeposits(address payable transferTo) private {
         uint256 _fee = block.gaslimit / _depositIndex;
-        for (uint256 i; i < _depositIndex; i++) {
-            Deposit memory dep = _deposits[i];
+        for (uint256 i; i < _depositIndex; ++i) {
+            Deposit storage dep = _deposits[i];
             if (0 == dep.withdrawal && 0 != (dep.requestValue - _fee)) {
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
