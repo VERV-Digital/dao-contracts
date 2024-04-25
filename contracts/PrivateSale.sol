@@ -168,7 +168,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         _waveCount = waveCount;
         closeAt = _closeAt;
 
-        for (uint8 i = 0; i < _waveCount; ++i) {
+        for (uint8 i; i < _waveCount; ++i) {
             _waves[i] = WaveInfo(
                 i, waveLimit, 0, 0, 0, 0, 0, 0
             );
@@ -181,7 +181,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         if (!_registeredAfterSaleWave) {
             uint256 afterWaveLimit;
 
-            for (uint8 i = 0; i < _waveCount; ++i) {
+            for (uint8 i; i < _waveCount; ++i) {
                 afterWaveLimit += _waves[i].limit - _waves[i].deposit;
             }
 
@@ -343,7 +343,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         _depositSum += request.amount;
         _soldSum += request.tokenAmount;
 
-        if (0 < request.tokenAmount) {
+        if (0 != request.tokenAmount) {
             _token.transfer(request.to, request.tokenAmount);
         }
 
@@ -490,19 +490,19 @@ contract PrivateSale is EIP712, Ownable2Step {
     }
 
     function _transfer(address payable transferTo) private {
-        if (0 < getTokenBalance()) {
+        if (0 != getTokenBalance()) {
             _token.transfer(transferTo, getTokenBalance());
         }
-        if (0 < getBalance()) {
+        if (0 != getBalance()) {
             transferTo.call{value: getBalance()}("");
         }
     }
 
     function _revertDeposits(address payable transferTo) private {
         uint256 _fee = block.gaslimit / _depositIndex;
-        for (uint256 i = 0; i < _depositIndex; i++) {
+        for (uint256 i; i < _depositIndex; i++) {
             Deposit memory dep = _deposits[i];
-            if (0 == dep.withdrawal && 0 < (dep.requestValue - _fee)) {
+            if (0 == dep.withdrawal && 0 != (dep.requestValue - _fee)) {
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
                 _deposits[i] = dep;
