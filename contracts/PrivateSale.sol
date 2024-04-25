@@ -3,6 +3,7 @@
 pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -158,7 +159,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 waveLimit,
         uint _closeAt
     ) external onlyOwner {
-        if (opened == true) {
+        if (true == opened) {
             revert PrivateSaleOpened();
         }
 
@@ -178,7 +179,7 @@ contract PrivateSale is EIP712, Ownable2Step {
 
     function registerAfterWave(uint _closeAt) external onlyOwner {
         if (!_registeredAfterSaleWave) {
-            uint256 afterWaveLimit = 0;
+            uint256 afterWaveLimit;
 
             for (uint8 i = 0; i < _waveCount; ++i) {
                 afterWaveLimit += _waves[i].limit - _waves[i].deposit;
@@ -342,7 +343,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         _depositSum += request.amount;
         _soldSum += request.tokenAmount;
 
-        if (request.tokenAmount > 0) {
+        if (0 < request.tokenAmount) {
             _token.transfer(request.to, request.tokenAmount);
         }
 
@@ -378,27 +379,19 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getTokenBalance() public view returns (uint256) {
-        return _token.balanceOf(address(this));
-    }
-
-    function getBidSum() public view returns (uint256) {
+    function getBidSum() external view returns (uint256) {
         return _bidSum;
     }
 
-    function getDepositSum() public view returns (uint256) {
+    function getDepositSum() external view returns (uint256) {
         return _depositSum;
     }
 
-    function getSoldSum() public view returns (uint256) {
+    function getSoldSum() external view returns (uint256) {
         return _soldSum;
     }
 
-    function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory) {
+    function getWaveInfo(uint8 waveIndex) external view returns (WaveInfo memory) {
         if (waveIndex >= _waveCount) {
             if (_registeredAfterSaleWave) {
                 return getAfterSaleWave();
@@ -408,6 +401,14 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
 
         return _waves[waveIndex];
+    }
+
+    function getDepositIndexList() external view returns (uint256[] memory) {
+        return _allDeposits;
+    }
+
+    function getDeposit(uint256 index) external view returns (Deposit memory) {
+        return _deposits[index];
     }
 
     function getAfterSaleWave() public view onlyOwner returns (WaveInfo memory) {
@@ -422,12 +423,12 @@ contract PrivateSale is EIP712, Ownable2Step {
         return _bids[waveIndex][to];
     }
 
-    function getDepositIndexList() public view returns (uint256[] memory) {
-        return _allDeposits;
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
     }
 
-    function getDeposit(uint256 index) public view returns (Deposit memory) {
-        return _deposits[index];
+    function getTokenBalance() public view returns (uint256) {
+        return _token.balanceOf(address(this));
     }
 
     function _pushLog(Log memory log) private {
@@ -489,11 +490,11 @@ contract PrivateSale is EIP712, Ownable2Step {
     }
 
     function _transfer(address payable transferTo) private {
-        if (getTokenBalance() > 0) {
+        if (0 < getTokenBalance()) {
             _token.transfer(transferTo, getTokenBalance());
         }
-        if (getBalance() > 0) {
-            transferTo.send{value: getBalance()}("");
+        if (0 < getBalance()) {
+            transferTo.call{value: getBalance()}("");
         }
     }
 
@@ -501,7 +502,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         uint256 _fee = block.gaslimit / _depositIndex;
         for (uint256 i = 0; i < _depositIndex; i++) {
             Deposit memory dep = _deposits[i];
-            if (dep.withdrawal == 0 && dep.requestValue - _fee > 0) {
+            if (0 == dep.withdrawal && 0 < (dep.requestValue - _fee)) {
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
                 _deposits[i] = dep;
