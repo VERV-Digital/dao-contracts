@@ -2,21 +2,22 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./coins/VRVBeta.sol";
-import "hardhat/console.sol";
 
-contract PrivateSale is EIP712, Ownable {
+contract PrivateSale is EIP712, Ownable2Step {
 
     using Math for uint256;
     using Address for address;
 
     string private constant SIGNING_DOMAIN = "VERVPRIVATESALE";
     string private constant SIGNATURE_VERSION = "1";
+
+    address private constant NULL_ADDRESS = address(0);
 
     error PrivateSaleOpened();
     error PrivateSaleClosed();
@@ -186,7 +187,7 @@ contract PrivateSale is EIP712, Ownable {
         _waveCount = waveCount;
         closeAt = _closeAt;
 
-        for (uint8 i = 0; i < _waveCount; i++) {
+        for (uint8 i = 0; i < _waveCount; ++i) {
             _waves[i] = WaveInfo(
                 i, waveLimit, 0, 0, 0, 0, 0, 0
             );
@@ -211,7 +212,7 @@ contract PrivateSale is EIP712, Ownable {
         if (!_registeredAfterSaleWave) {
             uint256 afterWaveLimit = 0;
 
-            for (uint8 i = 0; i < _waveCount; i++) {
+            for (uint8 i = 0; i < _waveCount; ++i) {
                 afterWaveLimit += _waves[i].limit - _waves[i].deposit;
             }
 
@@ -261,7 +262,7 @@ contract PrivateSale is EIP712, Ownable {
             revert PrivateSaleFailedWaveIndex();
         }
 
-        if (this.getBid(request.to, request.wave).to != address(0)) {
+        if (this.getBid(request.to, request.wave).to != NULL_ADDRESS) {
             revert PrivateSaleDepositBidExist();
         }
 
@@ -339,7 +340,7 @@ contract PrivateSale is EIP712, Ownable {
             if (!request.notBid) {
                 Bid memory _bid = getBid(_msgSender(), request.wave);
 
-                if (_bid.to == address(0)) {
+                if (_bid.to == NULL_ADDRESS) {
                     revert PrivateSaleDepositBidNotFound();
                 }
 
@@ -348,8 +349,6 @@ contract PrivateSale is EIP712, Ownable {
                 }
             }
         }
-
-
 
         if (request.expireTo <= block.timestamp) {
             revert PrivateSaleDepositExpired();
@@ -488,15 +487,19 @@ contract PrivateSale is EIP712, Ownable {
     }
 
     function _transfer(address payable transferTo) internal {
-        _token.transfer(transferTo, getTokenBalance());
-        transferTo.transfer(getBalance());
+        if (getTokenBalance() > 0) {
+            _token.transfer(transferTo, getTokenBalance());
+        }
+        if (getBalance() > 0) {
+            transferTo.transfer(getBalance());
+        }
     }
 
     function _revertDeposits(address payable transferTo) internal {
         uint256 _fee = block.gaslimit / _depositIndex;
         for (uint256 i = 0; i < _depositIndex; i++) {
             Deposit memory dep = _deposits[i];
-            if (dep.withdrawal == 0) {
+            if (dep.withdrawal == 0 && dep.requestValue - _fee > 0) {
                 dep.to.transfer(dep.requestValue - _fee);
                 dep.withdrawal = dep.requestValue;
                 _deposits[i] = dep;

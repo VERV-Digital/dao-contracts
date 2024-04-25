@@ -402,7 +402,7 @@ describe("Private sell smart contract", function () {
         it("Должен произойти сбой в создании ставки по причине указанной не верной волны", async function () {
             await transferVRV();
             await openSale();
-            const {bid, data} = await rawBid(owner, 10);
+            const {bid, data} = await rawBid(owner, 100);
 
             await time.setNextBlockTimestamp(currentTime + 350);
 

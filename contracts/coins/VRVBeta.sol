@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-contract VRVBeta is ERC20, ERC20Burnable, Ownable
+contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
 {
     /**
      * @dev You can't mint for yourself
@@ -30,12 +30,6 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable
         rewardsCloseAfter = _rewardsAt;
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
-        if (to == _msgSender()) {
-            revert VRVBetaInvalidSelfMinter();
-        }
-        _mint(to, amount);
-    }
 
     function addReward(address wallet, uint256 amount) external onlyOwner {
         _finishReward();
@@ -65,6 +59,13 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable
         } else {
             revert VRVBetaRewardsNotAvailable();
         }
+    }
+
+    function mint(address to, uint256 amount) public onlyOwner {
+        if (to == _msgSender()) {
+            revert VRVBetaInvalidSelfMinter();
+        }
+        _mint(to, amount);
     }
 
     function _finishReward() view internal {
