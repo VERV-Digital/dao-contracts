@@ -2,9 +2,9 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
 {
@@ -32,6 +32,12 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
         rewardsCloseAfter = _rewardsAt;
     }
 
+    function mint(address to, uint256 amount) external onlyOwner {
+        if (to == _msgSender() || to == address(this)) {
+            revert VRVBetaInvalidSelfMinter();
+        }
+        _mint(to, amount);
+    }
 
     function addReward(address wallet, uint256 amount) external onlyOwner {
         _finishReward();
@@ -58,7 +64,7 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
     function claimReward() external {
         _finishReward();
 
-        if (_rewards[_msgSender()] > 0) {
+        if (0 <= _rewards[_msgSender()]) {
             _mint(_msgSender(), _rewards[_msgSender()]);
 
             _rewards[_msgSender()] = 0;
@@ -67,14 +73,7 @@ contract VRVBeta is ERC20, ERC20Burnable, Ownable2Step
         }
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
-        if (to == _msgSender() || to == address(this)) {
-            revert VRVBetaInvalidSelfMinter();
-        }
-        _mint(to, amount);
-    }
-
-    function _finishReward() view internal {
+    function _finishReward() view private {
         if (block.timestamp >= rewardsCloseAfter) {
             revert VRVBetaRewardsNotAvailable();
         }

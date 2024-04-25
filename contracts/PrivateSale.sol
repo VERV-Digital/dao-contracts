@@ -2,12 +2,12 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./coins/VRVBeta.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {VRVBeta} from "./coins/VRVBeta.sol";
 
 contract PrivateSale is EIP712, Ownable2Step {
 
@@ -151,26 +151,6 @@ contract PrivateSale is EIP712, Ownable2Step {
         _registeredAfterSaleWave = false;
     }
 
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getTokenBalance() public view returns (uint256) {
-        return _token.balanceOf(address(this));
-    }
-
-    function getBidSum() public view returns (uint256) {
-        return _bidSum;
-    }
-
-    function getDepositSum() public view returns (uint256) {
-        return _depositSum;
-    }
-
-    function getSoldSum() public view returns (uint256) {
-        return _soldSum;
-    }
-
     function openSale(
         uint256 softCap,
         uint256 hardCap,
@@ -196,18 +176,6 @@ contract PrivateSale is EIP712, Ownable2Step {
         _open();
     }
 
-    function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory) {
-        if (waveIndex >= _waveCount) {
-            if (_registeredAfterSaleWave) {
-                return getAfterSaleWave();
-            } else {
-                revert PrivateSaleFailedWaveIndex();
-            }
-        }
-
-        return _waves[waveIndex];
-    }
-
     function registerAfterWave(uint _closeAt) external onlyOwner {
         if (!_registeredAfterSaleWave) {
             uint256 afterWaveLimit = 0;
@@ -225,19 +193,11 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function getAfterSaleWave() public view onlyOwner returns (WaveInfo memory) {
-        if (_registeredAfterSaleWave) {
-            return _afterSaleWave;
-        }
-
-        revert PrivateSaleAfterWaveNotRegistered();
-    }
-
     function getLogs() external view returns(Log[] memory) {
         return _log;
     }
 
-    function bid(BidRequest calldata request) public payable {
+    function bid(BidRequest calldata request) external payable {
         _calculateCap();
 
         if (closed || !opened) {
@@ -295,11 +255,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         ));
     }
 
-    function getBid(address to, uint8 waveIndex) public view returns(Bid memory) {
-        return _bids[waveIndex][to];
-    }
-
-    function deposit(DepositRequest calldata request) public payable {
+    function deposit(DepositRequest calldata request) external payable {
         _calculateCap();
 
         if (closed || !opened) {
@@ -410,14 +366,6 @@ contract PrivateSale is EIP712, Ownable2Step {
         _calculateCap();
     }
 
-    function getDepositIndexList() public view returns (uint256[] memory) {
-        return _allDeposits;
-    }
-
-    function getDeposit(uint256 index) public view returns (Deposit memory) {
-        return _deposits[index];
-    }
-
     function finish(address payable transferTo) external onlyOwner {
         _calculateCap();
 
@@ -430,11 +378,63 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function _pushLog(Log memory log) internal {
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function getTokenBalance() public view returns (uint256) {
+        return _token.balanceOf(address(this));
+    }
+
+    function getBidSum() public view returns (uint256) {
+        return _bidSum;
+    }
+
+    function getDepositSum() public view returns (uint256) {
+        return _depositSum;
+    }
+
+    function getSoldSum() public view returns (uint256) {
+        return _soldSum;
+    }
+
+    function getWaveInfo(uint8 waveIndex) public view returns (WaveInfo memory) {
+        if (waveIndex >= _waveCount) {
+            if (_registeredAfterSaleWave) {
+                return getAfterSaleWave();
+            }
+
+            revert PrivateSaleFailedWaveIndex();
+        }
+
+        return _waves[waveIndex];
+    }
+
+    function getAfterSaleWave() public view onlyOwner returns (WaveInfo memory) {
+        if (_registeredAfterSaleWave) {
+            return _afterSaleWave;
+        }
+
+        revert PrivateSaleAfterWaveNotRegistered();
+    }
+
+    function getBid(address to, uint8 waveIndex) public view returns(Bid memory) {
+        return _bids[waveIndex][to];
+    }
+
+    function getDepositIndexList() public view returns (uint256[] memory) {
+        return _allDeposits;
+    }
+
+    function getDeposit(uint256 index) public view returns (Deposit memory) {
+        return _deposits[index];
+    }
+
+    function _pushLog(Log memory log) private {
         _log.push(log);
     }
 
-    function _getSignerBidRequest(BidRequest calldata request) internal view returns (address) {
+    function _getSignerBidRequest(BidRequest calldata request) private view returns (address) {
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
@@ -452,7 +452,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         return ECDSA.recover(digest, request.signature);
     }
 
-    function _getSignerDepositRequest(DepositRequest calldata request) internal view returns (address) {
+    function _getSignerDepositRequest(DepositRequest calldata request) private view returns (address) {
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
@@ -472,7 +472,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         return ECDSA.recover(digest, request.signature);
     }
 
-    function _calculateCap() internal {
+    function _calculateCap() private {
         if (opened) {
             if (_depositSum < _softCap) {
                 _successful = false;
@@ -488,7 +488,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function _transfer(address payable transferTo) internal {
+    function _transfer(address payable transferTo) private {
         if (getTokenBalance() > 0) {
             _token.transfer(transferTo, getTokenBalance());
         }
@@ -497,7 +497,7 @@ contract PrivateSale is EIP712, Ownable2Step {
         }
     }
 
-    function _revertDeposits(address payable transferTo) internal {
+    function _revertDeposits(address payable transferTo) private {
         uint256 _fee = block.gaslimit / _depositIndex;
         for (uint256 i = 0; i < _depositIndex; i++) {
             Deposit memory dep = _deposits[i];
@@ -511,13 +511,13 @@ contract PrivateSale is EIP712, Ownable2Step {
         _transfer(transferTo);
     }
 
-    function _open() internal {
+    function _open() private {
         opened = true;
 
         emit SaleOpened();
     }
 
-    function _close() internal {
+    function _close() private {
         closed = true;
 
         emit SaleClosed();
