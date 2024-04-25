@@ -386,7 +386,9 @@ contract PrivateSale is EIP712, Ownable2Step {
         _depositSum += request.amount;
         _soldSum += request.tokenAmount;
 
-        _token.transfer(request.to, request.tokenAmount);
+        if (request.tokenAmount > 0) {
+            _token.transfer(request.to, request.tokenAmount);
+        }
 
         emit Deposited(_msgSender(), dep);
 
@@ -491,7 +493,7 @@ contract PrivateSale is EIP712, Ownable2Step {
             _token.transfer(transferTo, getTokenBalance());
         }
         if (getBalance() > 0) {
-            transferTo.transfer(getBalance());
+            transferTo.send{value: getBalance()}("");
         }
     }
 
