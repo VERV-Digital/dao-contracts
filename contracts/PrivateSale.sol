@@ -164,22 +164,22 @@ contract PrivateSale is EIP712, Ownable2Step {
     }
 
     function registerAfterWave(uint _closeAt) external onlyOwner {
-        if (!_registeredAfterSaleWave) {
-            uint256 afterWaveLimit;
-
-            for (uint8 i; i < _waveCount;) {
-                afterWaveLimit += _waves[i].limit - _waves[i].deposit;
-
-                unchecked{ i++; }
-            }
-
-            _afterSaleWave = WaveInfo(afterWaveLimit, 0, 0, 0, 0, _waveCount, 0, 0);
-
-            closeAt = _closeAt;
-            _registeredAfterSaleWave = true;
-        } else {
+        if (_registeredAfterSaleWave) {
             revert PrivateSaleAfterWaveRegistered();
         }
+
+        uint256 afterWaveLimit;
+
+        for (uint8 i; i < _waveCount;) {
+            afterWaveLimit += _waves[i].limit - _waves[i].deposit;
+
+            unchecked{ i++; }
+        }
+
+        _afterSaleWave = WaveInfo(afterWaveLimit, 0, 0, 0, 0, _waveCount, 0, 0);
+
+        closeAt = _closeAt;
+        _registeredAfterSaleWave = true;
     }
 
     function bid(BidRequest calldata request, bytes calldata signature) external payable {
@@ -470,7 +470,9 @@ contract PrivateSale is EIP712, Ownable2Step {
     }
 
     function _revertDeposits(address payable transferTo) private {
-        uint256 _fee = block.gaslimit / _depositIndex;
+        uint256 _fee;
+        unchecked{ _fee = block.gaslimit / _depositIndex; }
+
         for (uint256 i; i < _depositIndex;) {
             Deposit storage dep = _deposits[i];
             if (0 == dep.withdrawal) {

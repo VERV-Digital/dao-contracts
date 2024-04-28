@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "author": "",
   "license": "ISC",
+  "scripts": {
+    "clean": "npx hardhat clean",
+    "compile": "npx hardhat compile",
+    "deploy-private-sell": "npx hardhat ignition deploy ./ignition/modules/PrivateSale.ts",
+    "deploy-vrv": "npx hardhat ignition deploy ./ignition/modules/OnlyVervCoin.ts",
+    "flatten": "npx hardhat flatten contracts/coins/VRVBeta.sol > flatten/coins/VRVBeta.sol && npx hardhat flatten contracts/PrivateSale.sol > flatten/PrivateSale.sol",
+    "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage",
+    "account": "npx hardhat accounts"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.5",
