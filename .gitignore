@@ -18,3 +18,5 @@ ignition/deployments
 
 # Remix files
 /contracts/artifacts
+/contracts/conis/artifacts
+/.states/vm-cancun/state.json

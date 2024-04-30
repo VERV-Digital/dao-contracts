@@ -5,8 +5,8 @@ const VERV_INIT_SYPPLY_DEFAULT: bigint = 7_500_000_000_000_000_000_000_000n;
 const VERV_REWARDS_AT_DEFAULT: number = Math.round(Date.now() / 1000) + (60 * 60 * 24 * 30); // + 30 days
 const WAVE_INIT_DEFAULT: bigint = 750_000_000_000_000_000_000_000n;
 
-const SOFT_DEFAULT: bigint = 15_000_000_000_000_000_000n;
-const HARD_DEFAULT: bigint = 40_000_000_000_000_000_000n;
+const SOFT_DEFAULT: bigint = 30_000_000_000_000_000_000n;
+const HARD_DEFAULT: bigint = 150_000_000_000_000_000_000n;
 
 
 const PrivateSaleModule = buildModule("PrivateSaleModule", (m) => {
